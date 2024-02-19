@@ -1,0 +1,15 @@
+langchain
+openai
+numpy
+scikit-learn
+umap-learn
+tiktoken
+pandas
+matplotlib
+path
+hdbscan
+bertopic
+supabase
+python-dotenv
+prisma
+prisma-client
