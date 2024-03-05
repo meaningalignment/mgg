@@ -1,19 +1,18 @@
-To try:
+# To try:
 
-- [x] generate 10 different user questions asked to chatGPT
-- [x] for each, split them into moral dimensions
-- [x] try regenerate questions from dimensions
-- [ ] see if we can summarize the dimensions into a context 
-- [ ] see if we can create perturbations of a context summary by adding / removing dimensions
-
-Later:
-
-- [ ] generate 90 new questions from context perturbations
-- [ ] split them into context dimensions, again, cluster, compare?
-
+- [x] get 10 seed questions
+- [x] can we generate lots of good questions from those 10?
+- [x] can we split questions into moral dimensions
+- [x] can we somewhat robustly recreate question from dimensions
+- [x] can we identify 1-2 most relevant moral dimensions and summarize into a generalized context string
+- [x] can we identify edge cases, perturb questions, and make sure context string changes appropriately?
+- [x] can we use a context, expand to a story about transitioning from one value to another, and expand of each of these values to full sets of APs?
 
 
 # Findings
-- It is not straightforward to generate good seed questions. Could probably be improved through simulated dialogue.
-- Regenerating questions from extracted dimensions works pretty well:
-[View Seed Questions](./outputs/seed_questions.csv)
+- Given a few examples and maxed-out temperature, generating good seed questions is trivial.
+- Regenerating questions from extracted dimensions works pretty well
+- Including the definition of a "meaningful choice" helps with creating good dimensions
+- Identifying moral contexts and getting to a context string works pretty well when perturbing the story, adding detail etc.
+
+
