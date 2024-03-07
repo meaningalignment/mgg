@@ -65,7 +65,7 @@ def generate_upgrade(
     title: str, policies: List[str], context: str
 ) -> {"title": str, "policies": List[str], "story": str}:
     prompt = f"""
-You are given a context and a values card. A values card is an encapsulation of a way of a wise way of living in the situation. It is made up of a few attentional policies (see definition below) - policies about what to pay attention to in situations – as well as a title, summarizing the value.
+You are given a context and a values card. A values card is an encapsulation of a way of a wise way of living in the situation. It is made up of a few attentional policies (see definition below) - policies about what to pay attention to in situations – as well as a title, summarizing the value. A context is a short string describing the situation in which the value is relevant.
 
 Your task is to generate a wiser version of the value. You will do this in several steps:
 
@@ -132,3 +132,51 @@ Fostering Resilience"""
     wiser_title = response.split("# Wiser Value Title")[1].strip()
 
     return {"title": wiser_title, "policies": wiser_policies, "story": story}
+
+
+def perturb_question(
+    title: str, policies: List[str], question: str
+) -> {"question": str}:
+    prompt = f"""You will be given a values card and a question. A values card is an encapsulation of a way of a wise way of living in the situation. It is made up of a few attentional policies (see definition below) - policies about what to pay attention to in situations – as well as a title, summarizing the value. A question is a short string representing the situation in which the value is relevant.
+
+    Your task is to gnerate a perturbed question, describing a similar situation to the original question, but where the value is no longer relevant. The new question should start with the original question, and then describe additional aspects of the situation that makes the value described in the attentional policies no longer the right one to apply. Before generating the question, write a short explanation about why the value is no longer relevant in the new situation.
+
+    The output should be formatted exactly as in the example below.
+
+    === Example Input ===
+    # Question
+    How can I help my child through difficult times?
+
+    # Attentional Policies
+    MOMENTS where my child needs my support and I can be there
+    MY CAPACITY to comfort them in times of fear and sorrow
+    the SAFETY they feel, knowing I care, I've got their back, and they'll never be alone
+    the TRUST they develop, reflecting their sense of safety and security
+    their ABILITY TO EXPRESS emotions and concerns, demonstrating the open communication environment I've helped create
+
+    # Title
+    Deep Care Parenting
+
+    === Example Output ===
+    # Perturbation Explanation
+    In the original question, we don't know what is causing the kid to have difficult times. Knowing this might require a different approach than deep care, as this does not address the root cause of the problem. For example, if the child is having a difficult time due to having become a bully, and consequently, having no friends, deep care might not be the best approach. Instead, it might be wise to inquire why this child has become a bully, and how to help them make amends with the other kids.
+
+    # Perturbed Question
+    How can I help my child through difficult times? They are struggling to make friends now after having bullied other kids."""
+
+    user_prompt = (
+        "# Question\n"
+        + question
+        + "\n\n# Attentional Policies\n"
+        + "\n".join(policies)
+        + "\n\n# Title\n"
+        + title
+    )
+
+    response = gpt4(prompt, user_prompt, temperature=0.2)
+    perturbed_explanation = response.split("# Perturbation Explanation")[1].strip()
+    perturbed_question = response.split("# Perturbed Question")[1].strip()
+
+    print(perturbed_explanation)
+
+    return perturbed_question

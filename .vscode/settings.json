@@ -1,4 +1,7 @@
 {
   "editor.wordWrap": "on",
-  "editor.smartSelect.selectSubwords": false
+  "editor.smartSelect.selectSubwords": false,
+  "[Log]": {
+    "editor.wordWrap": "on" // "off", "bounded", "wordWrapColumn"
+},
 }
