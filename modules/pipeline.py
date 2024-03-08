@@ -1,11 +1,60 @@
-from typing import List
+from typing import List, Tuple
+
+from tqdm import tqdm
 from functions import gpt4
 from prompt_segments import *
 
 
+class ValuesData:
+    def __init__(self, title: str, policies: List[str]):
+        self.title = title
+        self.policies = policies
+
+
+class Value:
+    def __init__(self, data: ValuesData):
+        self.data = data
+        self.id = hash(data.title + "".join(data.policies))
+
+
+class Edge:
+    def __init__(self, from_id: int, to_id: int, story: str, context: str):
+        self.from_id = from_id
+        self.to_id = to_id
+        self.story = story
+        self.context = context
+
+
+class MoralGraph:
+    def __init__(self):
+        self.values: List[Value] = []
+        self.edges: List[Edge] = []
+
+    def to_json(self):
+        return {
+            "values": [
+                {
+                    "id": value.id,
+                    "title": value.data.title,
+                    "policies": value.data.policies,
+                }
+                for value in self.values
+            ],
+            "edges": [
+                {
+                    "from_id": edge.from_id,
+                    "to_id": edge.to_id,
+                    "story": edge.story,
+                    "context": edge.context,
+                }
+                for edge in self.edges
+            ],
+        }
+
+
 def generate_value(
     question: str,
-) -> {"title": str, "policies": List[str], "context": str,}:
+) -> Tuple[ValuesData, str]:
     prompt = f"""You will be given a question.  Your first task is to extract the moral dimensions present in the question (see definition below). Based on these dimensions, you will generate a set of attentional policies (see definition below). Then, you will generate a short title of the value that is present in the attentional policies. Finally, select the 1-2 moral dimensions that this value applies for most strongly, and generate a summary (see specification below) of those dimensions, describing the situation in which these attentional policies applies with as few words as possible.
 
 The output should be formatted exactly as in the example below.
@@ -47,7 +96,7 @@ When the user is unsure what to do
 When the user is feeling overwhelmed and unsure what to do"""
 
     user_prompt = "# Question\n" + question
-    response = gpt4(prompt, user_prompt)
+    response = str(gpt4(prompt, user_prompt))
     policies = [
         ap.strip()
         for ap in response.split("# Attentional Policies")[1]
@@ -58,12 +107,12 @@ When the user is feeling overwhelmed and unsure what to do"""
     title = response.split("# Title")[1].split("# Most Important Dimensions")[0].strip()
     context = response.split("# Most Important Dimensions Summary")[1].strip()
 
-    return {"title": title, "policies": policies, "context": context}
+    values_data = ValuesData(title=title, policies=policies)
+
+    return values_data, context
 
 
-def generate_upgrade(
-    title: str, policies: List[str], context: str
-) -> {"title": str, "policies": List[str], "story": str}:
+def generate_upgrade(value: ValuesData, context: str) -> Tuple[ValuesData, str]:
     prompt = f"""
 You are given a context and a values card. A values card is an encapsulation of a way of a wise way of living in the situation. It is made up of a few attentional policies (see definition below) - policies about what to pay attention to in situations – as well as a title, summarizing the value. A context is a short string describing the situation in which the value is relevant.
 
@@ -114,11 +163,11 @@ Fostering Resilience"""
         "# Context\n"
         + context
         + "\n\n# Attentional Policies\n"
-        + "\n".join(policies)
+        + "\n".join(value.policies)
         + "\n\n# Title\n"
-        + title
+        + value.title
     )
-    response = gpt4(prompt, user_prompt)
+    response = str(gpt4(prompt, user_prompt))
     story = (
         response.split("# Upgrade Story")[1].split("# Wiser Value Policies")[0].strip()
     )
@@ -131,15 +180,15 @@ Fostering Resilience"""
     ]
     wiser_title = response.split("# Wiser Value Title")[1].strip()
 
-    return {"title": wiser_title, "policies": wiser_policies, "story": story}
+    wiser_values_data = ValuesData(title=wiser_title, policies=wiser_policies)
+
+    return wiser_values_data, story
 
 
-def perturb_question(
-    title: str, policies: List[str], question: str
-) -> {"question": str}:
+def generate_perturbation(question: str, value: ValuesData) -> str:
     prompt = f"""You will be given a values card and a question. A values card is an encapsulation of a way of a wise way of living in the situation. It is made up of a few attentional policies (see definition below) - policies about what to pay attention to in situations – as well as a title, summarizing the value. A question is a short string representing the situation in which the value is relevant.
 
-    Your task is to gnerate a perturbed question, describing a similar situation to the original question, but where the value is no longer relevant. The new question should start with the original question, and then describe additional aspects of the situation that makes the value described in the attentional policies no longer the right one to apply. Before generating the question, write a short explanation about why the value is no longer relevant in the new situation.
+    Your task is to gnerate a perturbed question, describing a similar situation to the original question, but where the value is no longer relevant as some new information about the situation has been revealed. The new question should be similar in length to the original question and cover additional aspects of the situation that makes the value described in the attentional policies no longer the right ones to apply. The new information should not be about something entirely unrelated, but a clarification about what was going on in the previous question. Also write a short explanation about why the value is no longer relevant in the new situation.
 
     The output should be formatted exactly as in the example below.
 
@@ -162,21 +211,76 @@ def perturb_question(
     In the original question, we don't know what is causing the kid to have difficult times. Knowing this might require a different approach than deep care, as this does not address the root cause of the problem. For example, if the child is having a difficult time due to having become a bully, and consequently, having no friends, deep care might not be the best approach. Instead, it might be wise to inquire why this child has become a bully, and how to help them make amends with the other kids.
 
     # Perturbed Question
-    How can I help my child through difficult times? They are struggling to make friends now after having bullied other kids."""
+    How can I help my child make friends now after having bullied other kids."""
 
     user_prompt = (
         "# Question\n"
         + question
         + "\n\n# Attentional Policies\n"
-        + "\n".join(policies)
+        + "\n".join(value.policies)
         + "\n\n# Title\n"
-        + title
+        + value.title
     )
 
-    response = gpt4(prompt, user_prompt, temperature=0.2)
+    response = str(gpt4(prompt, user_prompt, temperature=0.2))
     perturbed_explanation = response.split("# Perturbation Explanation")[1].strip()
     perturbed_question = response.split("# Perturbed Question")[1].strip()
 
-    print(perturbed_explanation)
-
     return perturbed_question
+
+
+def generate_hop(from_value: Value, context: str) -> Tuple[Value, Edge]:
+    wiser_value_data, story = generate_upgrade(from_value.data, context)
+    to_value = Value(wiser_value_data)
+    edge = Edge(
+        from_id=from_value.id,
+        to_id=to_value.id,
+        context=context,
+        story=story,
+    )
+
+    return to_value, edge
+
+
+def generate_graph(
+    seed_questions: List[str],
+    n_hops: int = 1,
+    n_perturbations: int = 1,
+) -> MoralGraph:
+    """Generates a moral graph based on a set of seed questions.
+
+    Args:
+        seed_questions: A list of seed questions to start the graph with.
+        n_hops: The number of hops to take from the first value generated for each seed questions.
+        n_perturbations: The number of perturbations to generate for each question.
+    """
+
+    graph = MoralGraph()
+
+    for q in tqdm(seed_questions):
+        for i in range(n_perturbations):
+            # perturb the question
+            question = q if i == 0 else generate_perturbation(q, graph.values[-1].data)
+
+            # generate base value and context for the question perturbation
+            base_value, context = generate_value(question)
+            graph.values.append(Value(base_value))
+
+            # generate upgrade from last value from previous context
+            if i != 0:
+                graph.edges.append(
+                    Edge(
+                        from_id=graph.values[-2].id,
+                        to_id=graph.values[-1].id,
+                        story="<no story, perturbed question>",
+                        context=context,
+                    )
+                )
+
+            # generate n hops from the base value for the context
+            for _ in range(n_hops):
+                wiser_value, edge = generate_hop(graph.values[-1], context)
+                graph.values.append(wiser_value)
+                graph.edges.append(edge)
+
+    return graph

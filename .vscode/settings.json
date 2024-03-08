@@ -3,5 +3,9 @@
   "editor.smartSelect.selectSubwords": false,
   "[Log]": {
     "editor.wordWrap": "on" // "off", "bounded", "wordWrapColumn"
-},
+  },
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": true,
+  "python.linting.mypyEnabled": true,
+  "python.analysis.typeCheckingMode": "basic"
 }

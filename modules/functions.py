@@ -8,7 +8,7 @@ def gpt4(
     system_prompt: str | None = None,
     function: dict | None = None,
     temperature: float = 0.0,
-) -> str:
+) -> str | dict:
     messages = []
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
