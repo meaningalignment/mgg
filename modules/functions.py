@@ -1,3 +1,4 @@
+from collections import Counter
 import json
 import openai
 
@@ -9,6 +10,7 @@ def gpt4(
     system_prompt: str | None = None,
     function: dict | None = None,
     temperature: float = 0.0,
+    token_counter: Counter | None = None,
 ) -> str | dict:
     messages = []
     if system_prompt:
@@ -31,6 +33,10 @@ def gpt4(
         }
 
     result = client.chat.completions.create(**params)
+
+    if token_counter is not None:
+        token_counter["prompt_tokens"] += result.usage.prompt_tokens
+        token_counter["completion_tokens"] += result.usage.completion_tokens
 
     return (
         json.loads(result.choices[0].message.tool_calls[0].function.arguments)

@@ -29,12 +29,12 @@ wiser_value_definition = """# What makes a value wiser than the previous one?
 - The previous value unnecessarily conflicts with other important values for the context. A wiser value could balance the important good that the value is guarding with other important goods relevant to the context.
 - The previous value might not get at the "heart" of the good it is trying to guard. For example, a value around instilling discipline when parenting could miss that the real good behind it is to help the child grow in agency. There might be other ways of living that better achieves this good, by for example igniting the child's own motivation through curiosity and exploration."""
 
-summary_specification = """# Most Important Considerations Summary Specification
-The summary should be a very short sentence summarizing the 1-2 most important moral considerations using as few words as possible. It should start with 'When'."""
+choice_type_specification = """# Choice Type Specification
+The choice type should be a very short sentence summarizing the 1-2 most important moral considerations using as few words as possible. It should start with 'Choosing'. For example, 'Choosing to be there for my child'"""
 
 json_upgrade_example = """{ 
   input: {
-    choiceType: "choosing how to be there for my child",
+    choiceType: "Choosing how to be there for my child",
     policies: [
         "MOMENTS where my child needs my support and I can be there",
         "MY CAPACITY to comfort them in times of fear and sorrow",
