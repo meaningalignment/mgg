@@ -84,7 +84,7 @@ upgrade_stories_definition = """# Upgrade Stories
 
 Each upgrade story should have 5 components:
 
-- **An understanding of what the original input source of meaning was really about**, which the new, wiser source of meaning will also be about.
+- **An understanding of what the original input source of meaning was really about**, which the new, wiser source of meaning will also be about. What was actually important for the choice type, according to the input source of meaning?
 - **A clarification.** What was confused or incomplete about the old source of meaning, that the new one clarifies?
 - **The wiser source of meaning’s policies.**
 - **A mapping from the original input attentional policies to the wiser attentional policies**, explaining how each one was improved or stayed the same, or why one was added
@@ -104,7 +104,7 @@ upgrade_function = {
         "type": "object",
         "properties": {
             "input_value_was_really_about": {
-                "description": "What was really important in the input source of meaning?",
+                "description": "What was really important in the input source of meaning, for the given choice?",
                 "type": "string",
             },
             "clarification": {
