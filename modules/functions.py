@@ -1,3 +1,4 @@
+import json
 import openai
 
 client = openai.OpenAI()
@@ -32,7 +33,7 @@ def gpt4(
     result = client.chat.completions.create(**params)
 
     return (
-        result.choices[0].message.function_call.arguments
+        json.loads(result.choices[0].message.tool_calls[0].function.arguments)
         if function
         else result.choices[0].message.content.strip()
     )

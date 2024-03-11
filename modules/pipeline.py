@@ -3,6 +3,8 @@ from typing import List, Tuple
 from tqdm import tqdm
 from functions import gpt4
 from prompt_segments import *
+import json
+from uuid import uuid4 as uuid
 
 
 class ValuesData:
@@ -14,7 +16,7 @@ class ValuesData:
 class Value:
     def __init__(self, data: ValuesData):
         self.data = data
-        self.id = hash(data.title + "".join(data.policies))
+        self.id = str(uuid())
 
 
 class Edge:
@@ -51,15 +53,25 @@ class MoralGraph:
             ],
         }
 
+    def save(self):
+        with open(f"./graph_{self.__hash__}.json", "w") as f:
+            json.dump(self.to_json(), f, indent=2)
+
 
 def generate_value(
     question: str,
 ) -> Tuple[ValuesData, str]:
-    prompt = f"""You will be given a question.  Your first task is to extract the moral dimensions present in the question (see definition below). Based on these dimensions, you will generate a set of attentional policies (see definition below). Then, you will generate a short title of the value that is present in the attentional policies. Finally, select the 1-2 moral dimensions that this value applies for most strongly, and generate a summary (see specification below) of those dimensions, describing the situation in which these attentional policies applies with as few words as possible.
+    prompt = f"""Imagine you’re a chatbot and have received a question.  
+
+- Your first task is to list moral considerations you might face in responding to the question (see definition below).
+- Based on these considerations, you will generate a set of attentional policies that might help you respond to the question well (see definition below).
+- Then, you will generate a short title of the value that is captured by the attentional policies.
+- Finally, select the 1-2 moral considerations that — if they are present in a context, most strongly indicate that this value would apply.
+- And generate a summary (see specification below) of those considerations, describing the situation in which these attentional policies applies with as few words as possible.
 
 The output should be formatted exactly as in the example below.
 
-{moral_dimensions_definition}
+{moral_considerations_definition}
 
 {meaningful_choice_definition}
 
@@ -68,11 +80,15 @@ The output should be formatted exactly as in the example below.
 {summary_specification}
 
 === Example Input ===
+
 # Question
+
 I'm really stressed and overwhelmed. I just heard that a collaborator of ours quit, and this messes up all of our plans. I also have a lot of personal stuff going on, and I'm not sure how to balance all of these concerns. I'm not sure what to do.
 
 === Example Output ===
-# Moral Dimensions
+
+# Moral Considerations
+
 When the user is seeking help balancing personal and professional concerns
 When the user is dealing with their plans rapidly being uprooted
 When the user is feeling overwhelmed
@@ -80,19 +96,23 @@ When the user is unsure what to do
 When the user is stressed
 
 # Attentional Policies
+
 FEELINGS OF OVERWHELM that indicate I need to take a step back
 OPPORTUNITIES to get an overview of the situation
 SENSATIONS OF CLARITY that come from seeing the overall picture
 ACTIONS I can take from a newfound sense of clarity
 
 # Title
+
 Gaining Clarity
 
-# Most Important Dimensions
+# Most Important Considerations
+
 When the user is feeling overwhelmed
 When the user is unsure what to do
 
-# Most Important Dimensions Summary
+# Most Important Considerations Summary
+
 When the user is feeling overwhelmed and unsure what to do"""
 
     user_prompt = "# Question\n" + question
@@ -104,8 +124,10 @@ When the user is feeling overwhelmed and unsure what to do"""
         .split("\n")
         if ap.strip()
     ]
-    title = response.split("# Title")[1].split("# Most Important Dimensions")[0].strip()
-    context = response.split("# Most Important Dimensions Summary")[1].strip()
+    title = (
+        response.split("# Title")[1].split("# Most Important Considerations")[0].strip()
+    )
+    context = response.split("# Most Important Considerations Summary")[1].strip()
 
     values_data = ValuesData(title=title, policies=policies)
 
@@ -113,15 +135,65 @@ When the user is feeling overwhelmed and unsure what to do"""
 
 
 def generate_upgrade(value: ValuesData, context: str) -> Tuple[ValuesData, str]:
-    prompt = f"""
-You are given a context and a values card. A values card is an encapsulation of a way of a wise way of living in the situation. It is made up of a few attentional policies (see definition below) - policies about what to pay attention to in situations – as well as a title, summarizing the value. A context is a short string describing the situation in which the value is relevant.
+    prompt = f"""You'll receive a source of meaning, which is specified as a set of attentional policies (see below) that are useful in making a certain kind of choice. Suggest a plausible upgrade story from this source of meaning to another, wiser source of meaning that a person might use to make the same kind of choice.
+
+{source_of_meaning_definition}
+
+{attentional_policy_definition}
+
+{upgrade_stories_definition}
+
+### Guidelines
+
+Upgrades found should meet certain criteria:
+
+- First, many people would consider this change to be a deepening of wisdom. In each upgrade story, it should be plausible that a person would, as they grow wiser and have more life experiences, upgrade from the input source of meaning to those you provide. Importantly, the person should consider this a change for the better and it should not be a value-shift but a value-deepening.
+- Second, the new source of meaning obviates the need for the previous one, since all of the important parts of it are included in the new, more comprehensive source of meaning. When someone is deciding what to do, it is enough for them to only consider the new one.
+- Third, the old and new sources of meaning should be closely related in one of the following ways: (a) the new one should be a deeper cut at what the person cared about with the old one. Or, (b) the new one should clarify what the person cared about with the old one. Or, (c) the new one should be a more skillful way of paying attention to what the person cared about with the old one.
+
+# Example of an Upgrade Story
+
+Here is an example of such a shift:
+
+{json_upgrade_example}"""
+
+    user_prompt = json.dumps(
+        {
+            "choiceType": "choosing how to be there for my child",
+            "policies": value.policies,
+        }
+    )
+
+    user_prompt = (
+        "# Choice Type\n"
+        + context
+        + "\n\n# Attentional Policies\n"
+        + "\n".join(value.policies)
+    )
+
+    response = gpt4(prompt, user_prompt, function=upgrade_function)
+
+    assert isinstance(response, dict)
+
+    wiser_value = ValuesData(
+        title=response["wiser_value"]["title"],
+        policies=response["wiser_value"]["policies"],
+    )
+    story = response["story"]
+
+    return wiser_value, story
+
+
+@DeprecationWarning
+def generate_upgrade_legacy(value: ValuesData, context: str) -> Tuple[ValuesData, str]:
+    prompt = f"""You are given a context and a values card. A values card is an encapsulation of a way of a wise way of living in the situation. It is made up of a few attentional policies (see definition below) - policies about what to pay attention to in situations – as well as a title, summarizing the value. A context is a short string describing the situation in which the value is relevant.
 
 Your task is to generate a wiser version of the value. You will do this in several steps:
 
 1. First, generate a short instruction for how one could act based on the value in the context. This should be written as a story from first-person perspective, and only be one or two sentences long.
 2. Then, look at the instruction, context and value. When faced with the context, what other important thing could this person be missing? What would a wiser person do in the same situation?
 3. Generate a story about someone who used to live by this value for the context, but now realizes there is a better way to approach the context. See guidelines below for what makes a value wiser than another.
-4. For the new way of living depicted in the story, create a set of attentional policies adhering to the guidelines below, and a title.
+4. For the new way of living depicted in the story, create a new set of attentional policies adhering to the guidelines below, and a new title summarizing the new value you created.
 
 The output should be formatted exactly as in the example below.
 
@@ -239,6 +311,12 @@ def generate_hop(from_value: Value, context: str) -> Tuple[Value, Edge]:
         story=story,
     )
 
+    if from_value.id == to_value.id:
+        print("Wiser value not found – upgrade resulted in exact same value.")
+        print(wiser_value_data)
+        print(story)
+        raise ValueError
+
     return to_value, edge
 
 
@@ -264,6 +342,7 @@ def generate_graph(
 
             # generate base value and context for the question perturbation
             base_value, context = generate_value(question)
+            value_with_id = Value(base_value)
             graph.values.append(Value(base_value))
 
             # generate upgrade from last value from previous context
@@ -282,5 +361,8 @@ def generate_graph(
                 wiser_value, edge = generate_hop(graph.values[-1], context)
                 graph.values.append(wiser_value)
                 graph.edges.append(edge)
+                graph.save()
 
+        # save the graph after each question
+        graph.save()
     return graph
