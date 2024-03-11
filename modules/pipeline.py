@@ -324,6 +324,7 @@ def generate_graph(
     seed_questions: List[str],
     n_hops: int = 1,
     n_perturbations: int = 1,
+    foobar: str = "baz",
 ) -> MoralGraph:
     """Generates a moral graph based on a set of seed questions.
 

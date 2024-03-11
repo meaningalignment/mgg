@@ -14,3 +14,4 @@ python-dotenv
 prisma
 prisma-client
 importlib
+mypy
