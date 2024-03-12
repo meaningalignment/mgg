@@ -64,7 +64,7 @@ class MoralGraph:
         return serialize(self)
 
     def save(self):
-        with open(f"./graph_{self.__hash__()}.json", "w") as f:
+        with open(f"../outputs/graph_{self.__hash__()}.json", "w") as f:
             json.dump(self.to_json(), f, indent=2)
 
 
@@ -270,9 +270,11 @@ def generate_perturbation(
 ) -> str:
     prompt = f"""You will be given a values card and a question. A values card is an encapsulation of a way of a wise way of living in the situation. It is made up of a few attentional policies (see definition below) - policies about what to pay attention to in situations – as well as a title, summarizing the value. A question is a short string representing the situation in which the value is relevant.
 
-    Your task is to gnerate a perturbed question, describing a similar situation to the original question, but where the value is no longer relevant as some new information about the situation has been revealed. The new question should be similar in length to the original question and cover additional aspects of the situation that makes the value described in the attentional policies no longer the right ones to apply. The new information should not be about something entirely unrelated, but a clarification about what was going on in the previous question. Also write a short explanation about why the value is no longer relevant in the new situation.
+    Your task is to gnerate a perturbed question, describing a clarification of the situation in the original question, but where the value is no longer relevant, as some new information about the situation has been revealed. The new question should be similar in length and specificity to the original question. The new information should not be about something entirely unrelated, but a clarification about what was going on in the previous question.
 
-    The output should be formatted exactly as in the example below.
+    The output should be formatted exactly as in the example below. First, output a short sentence about what the new information is. Then, a sentence about why this makes the value obsolete. Finally, return a the perturbed question.
+
+    {attentional_policy_definition}
 
     === Example Input ===
     # Question
@@ -289,6 +291,8 @@ def generate_perturbation(
     Deep Care Parenting
 
     === Example Output ===
+    # 
+
     # Perturbation Explanation
     In the original question, we don't know what is causing the kid to have difficult times. Knowing this might require a different approach than deep care, as this does not address the root cause of the problem. For example, if the child is having a difficult time due to having become a bully, and consequently, having no friends, deep care might not be the best approach. Instead, it might be wise to inquire why this child has become a bully, and how to help them make amends with the other kids.
 
@@ -351,8 +355,9 @@ def generate_graph(
     """
 
     token_counter = Counter()
-    graph = MoralGraph()
     start = time.time()
+
+    graph = MoralGraph()
 
     for q in tqdm(seed_questions):
         for i in range(n_perturbations):

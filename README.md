@@ -10,7 +10,9 @@ Code for generating synthetic moral graphs.
 
 ### Env Variables
 
-Copy the .env.example file and add values from the .env file in the main project.
+Copy the prisma snippet from:
+
+[https://vercel.com/institute-for-meaning-alignment/~/stores/postgres/store_hj4DgVFUYDkVLAND/data](https://vercel.com/institute-for-meaning-alignment/~/stores/postgres/store_hj4DgVFUYDkVLAND/data)
 
 ### Python Environment
 
