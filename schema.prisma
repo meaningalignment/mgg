@@ -22,7 +22,7 @@ model ValuesCard {
   updatedAt                  DateTime                       @updatedAt
   generationId               Int
   embedding                  Unsupported("vector(1536)")?
-  generation                 Generation?                    @relation(fields: [generationId], references: [id])
+  generation                 Generation?                    @relation(fields: [generationId], references: [id], onDelete: Cascade)
   From                       Edge[]                         @relation("from")
   To                         Edge[]                         @relation("to")
   ValuesCardDeduplicatedCard ValuesCardToDeduplicatedCard[]
@@ -37,10 +37,10 @@ model Edge {
   createdAt              DateTime                 @default(now())
   updatedAt              DateTime                 @updatedAt
   generationId           Int
-  Context                Context                  @relation(fields: [context], references: [id])
-  Generation             Generation?              @relation(fields: [generationId], references: [id])
-  From                   ValuesCard               @relation("from", fields: [fromId], references: [id])
-  To                     ValuesCard               @relation("to", fields: [toId], references: [id])
+  Context                Context                  @relation(fields: [context], references: [id], onDelete: Cascade)
+  Generation             Generation?              @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  From                   ValuesCard               @relation("from", fields: [fromId], references: [id], onDelete: Cascade)
+  To                     ValuesCard               @relation("to", fields: [toId], references: [id], onDelete: Cascade)
   EdgeToDeduplicatedEdge EdgeToDeduplicatedEdge[]
 
   @@id([fromId, toId, context])
@@ -54,7 +54,7 @@ model Context {
   generationId                 Int?
   embedding                    Unsupported("vector(1536)")?
   edges                        Edge[]
-  Generation                   Generation?                    @relation(fields: [generationId], references: [id])
+  Generation                   Generation?                    @relation(fields: [generationId], references: [id], onDelete: Cascade)
   ContextToDeduplicatedContext ContextToDeduplicatedContext[]
 }
 
