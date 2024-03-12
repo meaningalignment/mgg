@@ -11,7 +11,7 @@ generator client {
   recursive_type_depth = 5
 }
 
-// A card with values, tied to a generation run.
+// A values card, tied to a generation run.
 model ValuesCard {
   id                         Int                            @id @default(autoincrement())
   title                      String
@@ -44,7 +44,7 @@ model Edge {
   @@id([fromId, toId, context])
 }
 
-// A context, tied to a generation run.
+// A context for an edge, tied to a generation run.
 model Context {
   id                           String                         @id
   createdAt                    DateTime                       @default(now())
@@ -113,7 +113,9 @@ model Generation {
   Edge          Edge[]
 }
 
-// A deduplication run. Cards and edges can be filtered on latest finished run.
+// A deduplication run. 
+//
+// To get the latest & greatest, filter cards, edges and contexts on latest finished run.
 model Deduplication {
   id                           Int                            @id @default(autoincrement())
   createdAt                    DateTime                       @default(now())
