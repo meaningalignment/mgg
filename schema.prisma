@@ -3,10 +3,12 @@ datasource db {
   url               = env("POSTGRES_PRISMA_URL") // uses connection pooling
   directUrl         = env("POSTGRES_URL_NON_POOLING") // uses a direct connection
   shadowDatabaseUrl = env("POSTGRES_URL_NON_POOLING_SHADOW") // used for migrations
+  extensions        = [pgvector(map: "vector")] // Add the pgvector extension
 }
 
 generator client {
   provider             = "prisma-client-py"
+  previewFeatures      = ["postgresqlExtensions"] // Enable the postgresqlExtensions. Currently in preview
   interface            = "sync"
   recursive_type_depth = 5
 }
