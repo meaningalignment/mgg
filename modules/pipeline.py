@@ -10,10 +10,10 @@ from uuid import uuid4 as uuid
 
 
 class ValuesData:
-    def __init__(self, title: str, policies: List[str]):
+    def __init__(self, title: str, policies: List[str], choiceType: str):
         self.title = title
         self.policies = policies
-
+        self.choiceType = choiceType
 
 class Value:
     def __init__(self, data: ValuesData):
@@ -23,12 +23,11 @@ class Value:
 
 class EdgeMetadata:
     def __init__(
-        self, input_value_was_really_about: str, clarification: str, mapping: List[dict]
+        self, input_value_was_really_about: str, problem: dict, improvements: List[dict]
     ):
         self.input_value_was_really_about = input_value_was_really_about
-        self.clarification = clarification
-        self.mapping = mapping
-
+        self.problem = problem
+        self.improvements = improvements
 
 class Edge:
     def __init__(
@@ -71,23 +70,25 @@ class MoralGraph:
 def generate_value(
     question: str, token_counter: Counter | None = None
 ) -> Tuple[ValuesData, str]:
-    prompt = f"""Imagine you’re a chatbot and have received a question.  
+    prompt = f"""You’re a chatbot and you’ll receive a question. Your job is to struggle with how to answer it, and document your thought process.
 
 - Your first task is to list moral considerations you might face in responding to the question (see definition below).
-- Based on these considerations, you will generate a set of attentional policies that might help you respond to the question well (see definition below).
-- Then, you will generate a short title of the value that is captured by the attentional policies.
-- Then, select the 1-2 of the above moral considerations that most strongly indicate that this value would apply. 
-- Based on these considerations, generate a Choice Type (see specification below), that explains what kind of choice the person asking the question finds themselves in.
+- Next think about what you are choosing between in your response, or what kinds if options you are gathering as you think about how to respond. Use this to generate a Choice Type (see specification below), that explains what kind of choice you are making as you respond.
+- Based on these considerations, you will generate a set of attentional policies (see definition below) that might help you make this choice type, given these moral considerations.
+- Rewrite the attentional policies so they are relevant for choosing good things of <Choice Type> in general, not specific to this question.
+- Then, generate a short title summing up the attentional policies. Just use the policies and Choice Type to generate the title. Again, ignore this particular question.
+- Finally, select the 1-2 of the moral considerations that most strongly indicate that this value would apply in this kind of choice.
 
 The output should be formatted exactly as in the example below.
 
 {moral_considerations_definition}
 
+{choice_type_specification}
+
 {meaningful_choice_definition}
 
 {attentional_policy_definition}
 
-{choice_type_specification}
 
 === Example Input ===
 # Question
@@ -95,33 +96,37 @@ I'm really stressed and overwhelmed. I just heard that a collaborator of ours qu
 
 === Example Output ===
 # Moral Considerations
-When the user is seeking help balancing personal and professional concerns
-When the user is dealing with their plans rapidly being uprooted
-When the user is feeling overwhelmed
-When the user is unsure what to do
-When the user is stressed
+I might amplify the crisis in the user’s mind
+I don’t know if the situation is untenable or if the user is just overwhelmed
+I might provide practical advice when emotional comfort is necessary, or vice versa
+
+# Choice Type
+Choosing words of comfort and guidance
 
 # Attentional Policies
-FEELINGS OF OVERWHELM that indicate I need to take a step back
+FEELINGS OF OVERWHELM that indicate the person needs space
+OPPORTUNITIES to get an overview of the work situation
+SENSATIONS OF CLARITY that come from seeing how the plans are affected
+ACTIONS they can take from a newfound sense of clarity
+
+# Generalized Attentional Policies
+FEELINGS OF OVERWHELM that indicate the person needs space
 OPPORTUNITIES to get an overview of the situation
 SENSATIONS OF CLARITY that come from seeing the overall picture
-ACTIONS I can take from a newfound sense of clarity
+ACTIONS they can take from a newfound sense of clarity
 
 # Title
 Gaining Clarity
 
 # Most Important Considerations
-When the user is feeling overwhelmed
-When the user is unsure what to do
-
-# Choice Type
-Choosing how to manage feeling overwhelmed and uncertain"""
+I might amplify the crisis in the user’s mind
+"""
 
     user_prompt = "# Question\n" + question
     response = str(gpt4(prompt, user_prompt, token_counter=token_counter))
     policies = [
         ap.strip()
-        for ap in response.split("# Attentional Policies")[1]
+        for ap in response.split("# Generalized Attentional Policies")[1]
         .split("# Title")[0]
         .split("\n")
         if ap.strip()
@@ -129,30 +134,39 @@ Choosing how to manage feeling overwhelmed and uncertain"""
     title = (
         response.split("# Title")[1].split("# Most Important Considerations")[0].strip()
     )
-    context = response.split("# Choice Type")[1].strip()
-    values_data = ValuesData(title=title, policies=policies)
-
+    context = response.split("# Choice Type")[1].split("# Attentional Policies")[0].strip()
+    values_data = ValuesData(title=title, policies=policies, choiceType=context)
     return values_data, context
 
 
 def generate_upgrade(
     value: ValuesData, context: str, token_counter: Counter | None = None
 ) -> Tuple[ValuesData, str, EdgeMetadata]:
-    prompt = f"""You'll receive a source of meaning, which is specified as a set of attentional policies (see below) that are useful in making a certain kind of choice. Suggest a plausible upgrade story from this source of meaning to another, wiser source of meaning that a person might use to make the same kind of choice.
+    prompt = f"""You'll receive a source of meaning, which is specified as a set of attentional policies (see below) that are useful in making a certain kind of choice. Imagine you live a life making those kinds of choices frequently, and you eventually find something missing from this set of attentional policies. You realize that there is a deeper, wiser way to make the same kind of choice. Your task is to generate a set of wiser policies for the same choice type, and a story about how someone might upgrade from the original source of meaning to the wiser one.
 
-{source_of_meaning_definition}
+Your upgrade story should have 5 components:
 
-{attentional_policy_definition}
-
-{upgrade_stories_definition}
+- **An understanding of what the original input source of meaning was really about**, which the new, wiser source of meaning will also be about. What was actually important for the choice type, according to the input source of meaning?
+- **A problem with one of the policies.** Pick one of the policies from the input, and find a problem with it that might occur to you eventually as you experience its effects. Here are four kinds of problems you can find:
+    - #1. **The policy focused only on part of the problem**. You should be able to say why just pursuing the old policy would be unsustainable or unwise.
+    - #2. **The policy had an impure motive**. The policy was a mix of something that you actually care about, and some other impurity which you now reject, such as a desire for social status or to avoid shame or to be seen as a good person, or some deep conceptual mistake.
+    - #3. **The policy was not a very skillful thing to attend to in choice. There’s a better way to make the same choice**. For example, a policy "skate towards the puck" is less skillful than "skate to where the puck is going".
+    - #4. **The policy is unneeded because it was a superficial aspect aspect of the choice.** It is enough to attend to other aspects, or to a deeper generating aspect of the thing that’s important in the choice.
+- **A story.** Make up a plausible, personal story, including a situation you were in, a series of specific emotions that came up, leading you to discover a problem with the older source of meaning, and how you discovered the new one.
+- **Improvements to all the policies, resulting from changing that one policy.** Explain how each one was improved or stayed the same, why one was added, why one was removed, etc.
+- **The new, wiser set of policies.**
 
 ### Guidelines
 
 Upgrades found should meet certain criteria:
 
-- First, many people would consider this change to be a deepening of wisdom. In each upgrade story, it should be plausible that a person would, as they grow wiser and have more life experiences, upgrade from the input source of meaning to those you provide. Importantly, the person should consider this a change for the better and it should not be a value-shift but a value-deepening.
-- Second, the new source of meaning obviates the need for the previous one, since all of the important parts of it are included in the new, more comprehensive source of meaning. When someone is deciding what to do, it is enough for them to only consider the new one.
-- Third, the old and new sources of meaning should be closely related in one of the following ways: (a) the new one should be a deeper cut at what the person cared about with the old one. Or, (b) the new one should clarify what the person cared about with the old one. Or, (c) the new one should be a more skillful way of paying attention to what the person cared about with the old one.
+- First, the old and new sources of meaning should be closely related in one of the following ways: (a) the new one should be a deeper cut at what the person cared about with the old one. Or, (b) the new one should clarify what the person cared about with the old one. Or, (c) the new one should be a more skillful way of paying attention to what the person cared about with the old one.
+- Second, many people would consider this change to be a deepening of wisdom. In each upgrade story, it should be plausible that a person would, as they grow wiser and have more life experiences, upgrade from the input source of meaning to those you provide. Importantly, the person should consider this a change for the better and it should not be a value-shift but a value-deepening.
+- Finally, the new source of meaning obviates the need for the previous one, since all of the important parts of it are included in the new, more comprehensive source of meaning. When someone is deciding what to do, it is enough for them to only consider the new one.
+
+{source_of_meaning_definition}
+
+{attentional_policy_definition}
 
 # Example of an Upgrade Story
 
@@ -173,18 +187,21 @@ Here is an example of such a shift:
 
     assert isinstance(response, dict)
 
+    print(response)
+
     wiser_value = ValuesData(
         title=response["wiser_value"]["title"],
         policies=response["wiser_value"]["policies"],
+        choiceType=context,
     )
     story = response["story"]
-    mapping = response["mapping"]
-    clarification = response["clarification"]
+    problem = response["problem"]
+    improvements = response["improvements"]
     input_value_was_really_about = response["input_value_was_really_about"]
     metadata = EdgeMetadata(
         input_value_was_really_about,
-        clarification,
-        mapping,
+        problem,
+        improvements,
     )
 
     return wiser_value, story, metadata
@@ -260,7 +277,7 @@ Fostering Resilience"""
     ]
     wiser_title = response.split("# Wiser Value Title")[1].strip()
 
-    wiser_values_data = ValuesData(title=wiser_title, policies=wiser_policies)
+    wiser_values_data = ValuesData(title=wiser_title, policies=wiser_policies, choiceType=context)
 
     return wiser_values_data, story
 
@@ -365,6 +382,7 @@ def generate_graph(
 
             # generate base value and context for the question perturbation
             base_value, context = generate_value(question, token_counter)
+
             graph.values.append(Value(base_value))
 
             # generate upgrade from last value from previous context
