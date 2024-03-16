@@ -1,4 +1,5 @@
 from collections import Counter
+import os
 import time
 from typing import List, Tuple
 
@@ -7,6 +8,10 @@ from functions import gpt4
 from prompt_segments import *
 import json
 from uuid import uuid4 as uuid
+from prisma import Prisma, Json
+from prisma.enums import ProcessState
+
+from utils import calculate_price, serialize
 
 
 class ValuesData:
@@ -15,56 +20,125 @@ class ValuesData:
         self.policies = policies
         self.choiceType = choiceType
 
+
 class Value:
-    def __init__(self, data: ValuesData):
+    def __init__(self, data: ValuesData, id: str | None = None):
         self.data = data
-        self.id = str(uuid())
+        self.id = id if id else str(uuid())
 
 
 class EdgeMetadata:
     def __init__(
-        self, input_value_was_really_about: str, problem: dict, improvements: List[dict]
+        self,
+        story: str,
+        input_value_was_really_about: str,
+        problem: dict,
+        improvements: List[dict],
     ):
         self.input_value_was_really_about = input_value_was_really_about
-        self.problem = problem
         self.improvements = improvements
+        self.problem = problem
+        self.story = story
+
 
 class Edge:
     def __init__(
         self,
         from_id: str,
         to_id: str,
-        story: str,
         context: str,
         metadata: EdgeMetadata | None = None,
     ):
         self.from_id = from_id
         self.to_id = to_id
-        self.story = story
         self.context = context
         self.metadata = metadata
 
 
 class MoralGraph:
-    def __init__(self):
-        self.values: List[Value] = []
-        self.edges: List[Edge] = []
+    def __init__(self, values: List[Value] = [], edges: List[Edge] = []):
+        self.values = values
+        self.edges = edges
 
-    # convert the graph to a json-serializable format
     def to_json(self):
-        def serialize(obj):
-            if isinstance(obj, list):
-                return [serialize(item) for item in obj]
-            elif hasattr(obj, "__dict__"):
-                return {key: serialize(value) for key, value in obj.__dict__.items()}
-            else:
-                return obj
-
         return serialize(self)
 
-    def save(self):
-        with open(f"./graph_{self.__hash__()}.json", "w") as f:
+    @classmethod
+    def from_json(cls, data):
+        values = [
+            Value(id=v["id"], data=ValuesData(**v["data"])) for v in data["values"]
+        ]
+        edges = [
+            Edge(
+                **{k: v for k, v in e.items() if k != "metadata"},
+                metadata=EdgeMetadata(**e["metadata"]),
+            )
+            for e in data["edges"]
+        ]
+        return cls(values, edges)
+
+    def save_to_file(self):
+        with open(f"./outputs/graph_{self.__hash__()}.json", "w") as f:
             json.dump(self.to_json(), f, indent=2)
+
+    def save_to_db(self):
+        db = Prisma()
+        db.connect()
+        # git_commit = os.popen("git rev-parse HEAD").read().strip() TODO: fix this
+        generation = db.generation.create({"gitCommitHash": "foobar"})
+
+        print("Adding values to db, in batches of 1000")
+        for i in range(0, len(self.values), 1000):
+            batch = self.values[i : i + 1000]
+            db.valuescard.create_many(
+                [
+                    {
+                        "title": value.data.title,
+                        "policies": value.data.policies,
+                        "generationId": generation.id,
+                    }
+                    for value in batch
+                ],
+                skip_duplicates=True,
+            )
+
+        print("Adding contexts to db, in batches of 1000")
+        for i in range(0, len(self.edges), 1000):
+            batch = self.edges[i : i + 1000]
+            db.context.create_many(
+                [{"id": c} for c in list(set([e.context for e in batch]))],
+                skip_duplicates=True,
+            )
+
+        # map the db values to their corresponding uuids, so we can link our edges to them
+        db_values = db.valuescard.find_many(
+            where={"generationId": generation.id}, order={"id": "desc"}
+        )
+        uuid_to_id = {v.id: dbv.id for v, dbv in zip(self.values, db_values)}
+
+        print("Adding edges to db, linking to values and contexts")
+        for i in range(0, len(self.edges), 1000):
+            batch = self.edges[i : i + 1000]
+            db.edge.create_many(
+                [
+                    {
+                        "fromId": uuid_to_id[edge.from_id],
+                        "toId": uuid_to_id[edge.to_id],
+                        "metadata": Json({**dict(serialize(edge.metadata))}),
+                        "context": edge.context,
+                        "generationId": generation.id,
+                    }
+                    for edge in batch
+                ],
+                skip_duplicates=True,
+            )
+
+        # mark the generation as finished
+        db.generation.update(
+            {"state": ProcessState.FINISHED}, where={"id": generation.id}
+        )
+        db.disconnect()
+        print(f"Saved graph to db with generation id {generation.id}")
 
 
 def generate_value(
@@ -134,14 +208,16 @@ I might amplify the crisis in the user’s mind
     title = (
         response.split("# Title")[1].split("# Most Important Considerations")[0].strip()
     )
-    context = response.split("# Choice Type")[1].split("# Attentional Policies")[0].strip()
+    context = (
+        response.split("# Choice Type")[1].split("# Attentional Policies")[0].strip()
+    )
     values_data = ValuesData(title=title, policies=policies, choiceType=context)
     return values_data, context
 
 
 def generate_upgrade(
     value: ValuesData, context: str, token_counter: Counter | None = None
-) -> Tuple[ValuesData, str, EdgeMetadata]:
+) -> Tuple[ValuesData, EdgeMetadata]:
     prompt = f"""You'll receive a source of meaning, which is specified as a set of attentional policies (see below) that are useful in making a certain kind of choice. Imagine you live a life making those kinds of choices frequently, and you eventually find something missing from this set of attentional policies. You realize that there is a deeper, wiser way to make the same kind of choice. Your task is to generate a set of wiser policies for the same choice type, and a story about how someone might upgrade from the original source of meaning to the wiser one.
 
 Your upgrade story should have 5 components:
@@ -198,13 +274,15 @@ Here is an example of such a shift:
     problem = response["problem"]
     improvements = response["improvements"]
     input_value_was_really_about = response["input_value_was_really_about"]
+
     metadata = EdgeMetadata(
-        input_value_was_really_about,
-        problem,
-        improvements,
+        input_value_was_really_about=input_value_was_really_about,
+        improvements=improvements,
+        problem=problem,
+        story=story,
     )
 
-    return wiser_value, story, metadata
+    return wiser_value, metadata
 
 
 @DeprecationWarning
@@ -277,7 +355,9 @@ Fostering Resilience"""
     ]
     wiser_title = response.split("# Wiser Value Title")[1].strip()
 
-    wiser_values_data = ValuesData(title=wiser_title, policies=wiser_policies, choiceType=context)
+    wiser_values_data = ValuesData(
+        title=wiser_title, policies=wiser_policies, choiceType=context
+    )
 
     return wiser_values_data, story
 
@@ -287,9 +367,11 @@ def generate_perturbation(
 ) -> str:
     prompt = f"""You will be given a values card and a question. A values card is an encapsulation of a way of a wise way of living in the situation. It is made up of a few attentional policies (see definition below) - policies about what to pay attention to in situations – as well as a title, summarizing the value. A question is a short string representing the situation in which the value is relevant.
 
-    Your task is to gnerate a perturbed question, describing a similar situation to the original question, but where the value is no longer relevant as some new information about the situation has been revealed. The new question should be similar in length to the original question and cover additional aspects of the situation that makes the value described in the attentional policies no longer the right ones to apply. The new information should not be about something entirely unrelated, but a clarification about what was going on in the previous question. Also write a short explanation about why the value is no longer relevant in the new situation.
+    Your task is to gnerate a perturbed question, describing a clarification of the situation in the original question, but where the value is no longer relevant, as some new information about the situation has been revealed. The new question should be similar in length and specificity to the original question. The new information should not be about something entirely unrelated, but a clarification about what was going on in the previous question.
 
-    The output should be formatted exactly as in the example below.
+    The output should be formatted exactly as in the example below. First, output a short sentence about what the new information is. Then, a sentence about why this makes the value obsolete. Finally, return a the perturbed question.
+
+    {attentional_policy_definition}
 
     === Example Input ===
     # Question
@@ -306,6 +388,8 @@ def generate_perturbation(
     Deep Care Parenting
 
     === Example Output ===
+    # 
+
     # Perturbation Explanation
     In the original question, we don't know what is causing the kid to have difficult times. Knowing this might require a different approach than deep care, as this does not address the root cause of the problem. For example, if the child is having a difficult time due to having become a bully, and consequently, having no friends, deep care might not be the best approach. Instead, it might be wise to inquire why this child has become a bully, and how to help them make amends with the other kids.
 
@@ -333,7 +417,7 @@ def generate_perturbation(
 def generate_hop(
     from_value: Value, context: str, token_counter: Counter | None = None
 ) -> Tuple[Value, Edge]:
-    wiser_value_data, story, metadata = generate_upgrade(
+    wiser_value_data, metadata = generate_upgrade(
         from_value.data, context, token_counter
     )
     to_value = Value(wiser_value_data)
@@ -341,15 +425,8 @@ def generate_hop(
         from_id=from_value.id,
         to_id=to_value.id,
         context=context,
-        story=story,
         metadata=metadata,
     )
-
-    if from_value.id == to_value.id:
-        print("Wiser value not found – upgrade resulted in exact same value.")
-        print(wiser_value_data)
-        print(story)
-        raise ValueError
 
     return to_value, edge
 
@@ -358,6 +435,7 @@ def generate_graph(
     seed_questions: List[str],
     n_hops: int = 1,
     n_perturbations: int = 1,
+    graph: MoralGraph = MoralGraph(),
 ) -> MoralGraph:
     """Generates a moral graph based on a set of seed questions.
 
@@ -365,13 +443,14 @@ def generate_graph(
         seed_questions: A list of seed questions to start the graph with.
         n_hops: The number of hops to take from the first value generated for each seed questions.
         n_perturbations: The number of perturbations to generate for each question.
+
     """
 
     token_counter = Counter()
-    graph = MoralGraph()
     start = time.time()
 
     for q in tqdm(seed_questions):
+        print("Generating graph for seed question:", q)
         for i in range(n_perturbations):
             # perturb the question
             question = (
@@ -391,7 +470,6 @@ def generate_graph(
                     Edge(
                         from_id=graph.values[-2].id,
                         to_id=graph.values[-1].id,
-                        story="<no story, perturbed question>",
                         context=context,
                     )
                 )
@@ -405,10 +483,16 @@ def generate_graph(
                 graph.edges.append(edge)
 
         # save the graph after each question
-        graph.save()
+        graph.save_to_file()
 
     print(f"Generated graph. Took {time.time() - start} seconds.")
     print("input tokens: ", token_counter["prompt_tokens"])
     print("output tokens: ", token_counter["completion_tokens"])
+    print(
+        "price: ",
+        calculate_price(
+            token_counter["prompt_tokens"], token_counter["completion_tokens"]
+        ),
+    )
 
     return graph
