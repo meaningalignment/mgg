@@ -10,3 +10,12 @@ def serialize(obj) -> dict | list:
 def calculate_price(input_tokens, output_tokens):
     # using pricing for gpt-4-0125-preview
     return (input_tokens * 10 + output_tokens * 30) / 1_000_000
+
+def parse_to_dict(text):
+    sections = text.split('#')
+    result = {}
+    for section in sections[1:]:  # Skip the first split as it's before the first header
+        if '\n' in section:
+            header, content = section.split('\n', 1)
+            result[header.strip()] = content.strip()
+    return result

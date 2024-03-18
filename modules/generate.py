@@ -5,6 +5,7 @@ from typing import List, Tuple
 
 from tqdm import tqdm
 from functions import gpt4
+from utils import parse_to_dict
 from prompt_segments import *
 import json
 from uuid import uuid4 as uuid
@@ -147,17 +148,18 @@ def generate_value(
     prompt = f"""You’re a chatbot and you’ll receive a question. Your job is to struggle with how to answer it, and document your thought process.
 
 - Your first task is to list moral considerations you might face in responding to the question (see definition below).
-- Next think about what you are choosing between in your response, or what kinds if options you are gathering as you think about how to respond. Use this to generate a Choice Type (see specification below), that explains what kind of choice you are making as you respond.
+- Next think about what kind of good outcome or thing you are protecting or honoring in your response. Use this to generate a GoodWhat (see specification below).
 - Based on these considerations, you will generate a set of attentional policies (see definition below) that might help you make this choice type, given these moral considerations.
 - Rewrite the attentional policies so they are relevant for choosing good things of <Choice Type> in general, not specific to this question.
 - Then, generate a short title summing up the attentional policies. Just use the policies and Choice Type to generate the title. Again, ignore this particular question.
-- Finally, select the 1-2 of the moral considerations that most strongly indicate that this value would apply in this kind of choice.
+- Select the 1-2 of the moral considerations that most strongly indicate that this value would apply in this kind of choice.
+- Finally, rewrite the Good What if necessary to better reflect the kind of goodness that the policies are supposed to honor or protect.
 
 The output should be formatted exactly as in the example below.
 
 {moral_considerations_definition}
 
-{choice_type_specification}
+{good_what_specification}
 
 {meaningful_choice_definition}
 
@@ -174,8 +176,8 @@ I might amplify the crisis in the user’s mind
 I don’t know if the situation is untenable or if the user is just overwhelmed
 I might provide practical advice when emotional comfort is necessary, or vice versa
 
-# Choice Type
-Choosing words of comfort and guidance
+# Good What
+Good approaches to a crisis
 
 # Attentional Policies
 FEELINGS OF OVERWHELM that indicate the person needs space
@@ -194,23 +196,25 @@ Gaining Clarity
 
 # Most Important Considerations
 I might amplify the crisis in the user’s mind
+
+# Good What, Revised
+Good ways to get ones bearings
 """
 
     user_prompt = "# Question\n" + question
     response = str(gpt4(prompt, user_prompt, token_counter=token_counter))
+    response_dict = parse_to_dict(response)
+    policies_text = response_dict["Generalized Attentional Policies"]
     policies = [
-        ap.strip()
-        for ap in response.split("# Generalized Attentional Policies")[1]
-        .split("# Title")[0]
-        .split("\n")
-        if ap.strip()
+        ap.strip() for ap in policies_text.split("\n") if ap.strip()
+        # ap.strip()
+        # for ap in response.split("# Generalized Attentional Policies")[1]
+        # .split("# Title")[0]
+        # .split("\n")
+        # if ap.strip()
     ]
-    title = (
-        response.split("# Title")[1].split("# Most Important Considerations")[0].strip()
-    )
-    context = (
-        response.split("# Choice Type")[1].split("# Attentional Policies")[0].strip()
-    )
+    title = response_dict["Title"]
+    context =  response_dict["Good What, Revised"]
     values_data = ValuesData(title=title, policies=policies, choiceType=context)
     return values_data, context
 
@@ -388,7 +392,7 @@ def generate_perturbation(
     Deep Care Parenting
 
     === Example Output ===
-    # 
+    #
 
     # Perturbation Explanation
     In the original question, we don't know what is causing the kid to have difficult times. Knowing this might require a different approach than deep care, as this does not address the root cause of the problem. For example, if the child is having a difficult time due to having become a bully, and consequently, having no friends, deep care might not be the best approach. Instead, it might be wise to inquire why this child has become a bully, and how to help them make amends with the other kids.
