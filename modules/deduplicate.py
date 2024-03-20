@@ -127,7 +127,7 @@ def __get_representative(card_ids: List[int]):
 def __create_deduplicated_card(card: ValuesCard, deduplication_id: int):
     canonical = db.deduplicatedcard.create(
         data={
-            "generation": deduplication_id,
+            "deduplicationId": deduplication_id,
             "title": card.title,
             "policies": card.policies,
             "ValuesCardToDeduplicatedCard": {"create": {"valuesCardId": card.id}},
@@ -143,7 +143,7 @@ def __link_to_deduplicated_card(
 ):
     db.valuescardtodeduplicatedcard.create(
         data={
-            "deduplicationGenerationId": deduplication_id,
+            "deduplicationId": deduplication_id,
             "deduplicatedCardId": existing_duplicate.id,
             "valuesCardId": card.id,
         }
@@ -169,9 +169,7 @@ def seed():
     """Seed a new deduplication."""
 
     db.connect()
-    deduplication = db.deduplicationgeneration.create(
-        data={"gitCommitHash": "TODO"}  # TODO
-    )
+    deduplication = db.deduplication.create(data={"gitCommitHash": "TODO"})  # TODO
     cards = db.query_raw(
         'SELECT id, embedding::real[] FROM "ValuesCard"', model=ClusterableObject
     )
@@ -191,12 +189,14 @@ def deduplicate() -> None:
     """Deduplicate all non-deduplicated cards for the latest deduplication generation."""
 
     db.connect()
-    deduplication = db.deduplicationgeneration.find_first(order={"createdAt": "desc"})
+    deduplication = db.deduplication.find_first(order={"createdAt": "desc"})
     if not deduplication:
         return print("No seed clusters exist for deduplication. Run `seed()` first.")
     cards = db.valuescard.find_many(
         where={
-            "ValuesCardDeduplicatedCard": {"none": {"deduplication": deduplication.id}}
+            "ValuesCardToDeduplicatedCard": {
+                "none": {"deduplicationId": deduplication.id}
+            }
         },
         take=100,
     )

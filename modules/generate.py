@@ -95,7 +95,7 @@ class MoralGraph:
                     {
                         "title": value.data.title,
                         "policies": value.data.policies,
-                        "graphGenerationId": generation.id,
+                        "graphGenerationId": generation.id,  # TODO: fix this
                     }
                     for value in batch
                 ],

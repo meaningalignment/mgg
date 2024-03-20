@@ -15,17 +15,17 @@ generator client {
 
 // A values card, tied to a generation run.
 model ValuesCard {
-  id              Int                            @id @default(autoincrement())
-  title           String
-  policies        String[]
-  createdAt       DateTime                       @default(now())
-  updatedAt       DateTime                       @updatedAt
-  generation      Int
-  embedding       Unsupported("vector(1536)")?
-  GraphGeneration GraphGeneration?               @relation(fields: [generation], references: [id], onDelete: Cascade)
-  From            Edge[]                         @relation("from")
-  To              Edge[]                         @relation("to")
-  Deduplication   ValuesCardToDeduplicatedCard[]
+  id                           Int                            @id @default(autoincrement())
+  title                        String
+  policies                     String[]
+  createdAt                    DateTime                       @default(now())
+  updatedAt                    DateTime                       @updatedAt
+  generationId                 Int
+  embedding                    Unsupported("vector(1536)")?
+  Generation                   Generation                     @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  From                         Edge[]                         @relation("from")
+  To                           Edge[]                         @relation("to")
+  ValuesCardToDeduplicatedCard ValuesCardToDeduplicatedCard[]
 }
 
 // An edge between two cards, tied to a generation run.
@@ -36,9 +36,9 @@ model Edge {
   metadata               Json?
   createdAt              DateTime                 @default(now())
   updatedAt              DateTime                 @updatedAt
-  generation             Int
+  generationId           Int
   Context                Context                  @relation(fields: [context], references: [id], onDelete: Cascade)
-  GraphGeneration        GraphGeneration?         @relation(fields: [generation], references: [id], onDelete: Cascade)
+  Generation             Generation               @relation(fields: [generationId], references: [id], onDelete: Cascade)
   From                   ValuesCard               @relation("from", fields: [fromId], references: [id], onDelete: Cascade)
   To                     ValuesCard               @relation("to", fields: [toId], references: [id], onDelete: Cascade)
   EdgeToDeduplicatedEdge EdgeToDeduplicatedEdge[]
@@ -51,26 +51,26 @@ model Context {
   id                           String                         @id
   createdAt                    DateTime                       @default(now())
   updatedAt                    DateTime                       @updatedAt
-  generation                   Int?
+  generationId                 Int
   embedding                    Unsupported("vector(1536)")?
   Edge                         Edge[]
-  GraphGeneration              GraphGeneration?               @relation(fields: [generation], references: [id], onDelete: Cascade)
+  Generation                   Generation                     @relation(fields: [generationId], references: [id], onDelete: Cascade)
   ContextToDeduplicatedContext ContextToDeduplicatedContext[]
 }
 
 // A deduplicated card, tied to a deduplication run.
 model DeduplicatedCard {
-  id                      Int                            @id @default(autoincrement())
-  title                   String
-  policies                String[]
-  createdAt               DateTime                       @default(now())
-  updatedAt               DateTime                       @updatedAt
-  generation              Int
-  embedding               Unsupported("vector(1536)")?
-  DeduplicationGeneration DeduplicationGeneration        @relation(fields: [generation], references: [id])
-  From                    DeduplicatedEdge[]             @relation("from")
-  To                      DeduplicatedEdge[]             @relation("to")
-  Deduplication           ValuesCardToDeduplicatedCard[]
+  id                           Int                            @id @default(autoincrement())
+  title                        String
+  policies                     String[]
+  createdAt                    DateTime                       @default(now())
+  updatedAt                    DateTime                       @updatedAt
+  deduplicationId              Int
+  embedding                    Unsupported("vector(1536)")?
+  Deduplication                Deduplication                  @relation(fields: [deduplicationId], references: [id])
+  From                         DeduplicatedEdge[]             @relation("from")
+  To                           DeduplicatedEdge[]             @relation("to")
+  ValuesCardToDeduplicatedCard ValuesCardToDeduplicatedCard[]
 }
 
 // A deduplicated edge, tied to a deduplication run.
@@ -81,11 +81,11 @@ model DeduplicatedEdge {
   metadata               Json?
   createdAt              DateTime                 @default(now())
   updatedAt              DateTime                 @updatedAt
-  generation             Int
+  deduplicationId        Int
   contextModel           DeduplicatedContext      @relation(fields: [context], references: [id])
-  deduplication          DeduplicationGeneration  @relation(fields: [generation], references: [id])
-  From                   DeduplicatedCard         @relation("from", fields: [fromId], references: [id])
-  To                     DeduplicatedCard         @relation("to", fields: [toId], references: [id])
+  Deduplication          Deduplication            @relation(fields: [deduplicationId], references: [id], onDelete: Cascade)
+  From                   DeduplicatedCard         @relation("from", fields: [fromId], references: [id], onDelete: Cascade)
+  To                     DeduplicatedCard         @relation("to", fields: [toId], references: [id], onDelete: Cascade)
   EdgeToDeduplicatedEdge EdgeToDeduplicatedEdge[]
 
   @@id([fromId, toId, context])
@@ -99,12 +99,12 @@ model DeduplicatedContext {
   generation                   Int
   embedding                    Unsupported("vector(1536)")?
   DeduplicatedEdge             DeduplicatedEdge[]
-  DeduplicationGeneration      DeduplicationGeneration        @relation(fields: [generation], references: [id])
+  Deduplication                Deduplication                  @relation(fields: [generation], references: [id], onDelete: Cascade)
   ContextToDeduplicatedContext ContextToDeduplicatedContext[]
 }
 
 // A graph generation run.
-model GraphGeneration {
+model Generation {
   id            Int          @id @default(autoincrement())
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
@@ -115,10 +115,8 @@ model GraphGeneration {
   Edge          Edge[]
 }
 
-// A deduplication generation run. 
-//
-// To get the latest & greatest, filter cards, edges and contexts on latest finished run.
-model DeduplicationGeneration {
+// A deduplication run. 
+model Deduplication {
   id                           Int                            @id @default(autoincrement())
   createdAt                    DateTime                       @default(now())
   updatedAt                    DateTime                       @updatedAt
@@ -134,42 +132,48 @@ model DeduplicationGeneration {
 
 // Linking table for values card to deduplicated version, tied to a deduplication run.
 model ValuesCardToDeduplicatedCard {
-  valuesCardId            Int
-  deduplicatedCardId      Int
-  generation              Int
-  DeduplicationGeneration DeduplicationGeneration @relation(fields: [generation], references: [id])
-  ValuesCard              ValuesCard              @relation(fields: [valuesCardId], references: [id])
-  DeduplicatedCard        DeduplicatedCard        @relation(fields: [deduplicatedCardId], references: [id])
+  valuesCardId       Int
+  deduplicatedCardId Int
+  deduplicationId    Int
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  Deduplication      Deduplication    @relation(fields: [deduplicationId], references: [id], onDelete: Cascade)
+  ValuesCard         ValuesCard       @relation(fields: [valuesCardId], references: [id], onDelete: Cascade)
+  DeduplicatedCard   DeduplicatedCard @relation(fields: [deduplicatedCardId], references: [id], onDelete: Cascade)
 
-  @@id([valuesCardId, deduplicatedCardId, generation])
+  @@id([valuesCardId, deduplicatedCardId, deduplicationId])
 }
 
 // Linking table for context to deduplicated context, tied to a deduplication run.
 model ContextToDeduplicatedContext {
-  contextId               String
-  deduplicatedContextId   String
-  generation              Int
-  DeduplicationGeneration DeduplicationGeneration @relation(fields: [generation], references: [id])
-  Context                 Context                 @relation(fields: [contextId], references: [id])
-  DeduplicatedContext     DeduplicatedContext     @relation(fields: [deduplicatedContextId], references: [id])
+  contextId             String
+  deduplicatedContextId String
+  deduplicationId       Int
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  Deduplication         Deduplication       @relation(fields: [deduplicationId], references: [id])
+  Context               Context             @relation(fields: [contextId], references: [id], onDelete: Cascade)
+  DeduplicatedContext   DeduplicatedContext @relation(fields: [deduplicatedContextId], references: [id], onDelete: Cascade)
 
-  @@id([contextId, deduplicatedContextId, generation])
+  @@id([contextId, deduplicatedContextId, deduplicationId])
 }
 
 // Linking table for edge to deduplicated edge, tied to a deduplication run.
 model EdgeToDeduplicatedEdge {
-  fromId                  Int
-  toId                    Int
-  deduplicatedFromId      Int
-  deduplicatedToId        Int
-  context                 String
-  deduplicatedContext     String
-  generation              Int
-  DeduplicationGeneration DeduplicationGeneration @relation(fields: [generation], references: [id])
-  Edge                    Edge                    @relation(fields: [fromId, toId, context], references: [fromId, toId, context])
-  DeduplicatedEdge        DeduplicatedEdge        @relation(fields: [deduplicatedFromId, deduplicatedToId, deduplicatedContext], references: [fromId, toId, context])
+  fromId              Int
+  toId                Int
+  deduplicatedFromId  Int
+  deduplicatedToId    Int
+  context             String
+  deduplicatedContext String
+  deduplicationId     Int
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  Deduplication       Deduplication    @relation(fields: [deduplicationId], references: [id], onDelete: Cascade)
+  Edge                Edge             @relation(fields: [fromId, toId, context], references: [fromId, toId, context], onDelete: Cascade)
+  DeduplicatedEdge    DeduplicatedEdge @relation(fields: [deduplicatedFromId, deduplicatedToId, deduplicatedContext], references: [fromId, toId, context], onDelete: Cascade)
 
-  @@id([fromId, toId, context, deduplicatedFromId, deduplicatedToId, deduplicatedContext, generation])
+  @@id([fromId, toId, context, deduplicatedFromId, deduplicatedToId, deduplicatedContext, deduplicationId])
 }
 
 // The state of a deduplication or generation process. Always IN_PROGRESS when created.
