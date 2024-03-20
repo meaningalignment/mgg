@@ -1,9 +1,0 @@
-node_modules
-node_modules.nosync
-.DS_Store
-/.cache
-/build
-/public/build
-.env
-/backups
-test.ipynb
