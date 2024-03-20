@@ -6,8 +6,11 @@ import numpy as np
 import json
 from prisma import Prisma
 from prisma.models import DeduplicatedCard, ValuesCard
+from prisma.enums import ProcessState
 from tqdm import tqdm
 from gpt import gpt4
+from sklearn.cluster import DBSCAN
+from sklearn.metrics.pairwise import cosine_distances
 
 from prompt_segments import attentional_policy_definition
 
@@ -15,6 +18,10 @@ from prompt_segments import attentional_policy_definition
 class ClusterableObject(BaseModel):
     id: int
     embedding: List[float]
+
+
+class CardWithDistance(DeduplicatedCard):
+    distance: float
 
 
 db = Prisma()
@@ -73,35 +80,52 @@ best_function = {
 }
 
 
-def __embed_card(card: ValuesCard | DeduplicatedCard) -> List[float]:
+def _embed_card(card: ValuesCard | DeduplicatedCard) -> List[float]:
     text = "\n".join(card.policies)  # TODO - include something about choice type.
-    response = client.embeddings.create(model="text-embedding-3-large", input=text)
+    response = client.embeddings.create(model="text-embedding-3-small", input=text)
     return response.data[0].embedding
 
 
-def __similarity_search(
+def _similarity_search(
     candidate: ValuesCard, deduplication_id: int, limit: int = 5, threshold: float = 0.1
 ) -> List[DeduplicatedCard]:
-    embeddings = __embed_card(candidate)
-    query = f'SELECT DISTINCT c.id, c.title, c."policies", c.embedding <=> \'{embeddings}\'::vector as "_distance" FROM "DeduplicatedCard" c WHERE "deduplicationId" = {deduplication_id} ORDER BY "_distance" ASC LIMIT {limit};'
-    result = db.query_raw(query, model=DeduplicatedCard)
-    return [r for r in result if r.__dict__["_distance"] < threshold]
+    embeddings = _embed_card(candidate)
+    query = f"""SELECT DISTINCT c.id, c.title, c.policies, c."createdAt", c."updatedAt", c."deduplicationId", c.embedding <=> '{json.dumps(embeddings)}'::vector as "distance" FROM "DeduplicatedCard" c WHERE "deduplicationId" = {deduplication_id} ORDER BY "distance" ASC LIMIT {limit};"""
+    result = db.query_raw(query, model=CardWithDistance)
+    return [r for r in result if r.distance < threshold]
 
 
-def __cluster(objects: List[ClusterableObject]):
-    scan = DBSCAN(eps=0.11, min_samples=3)  # TODO: actually fix
-    return scan.fit(np.asarray(objects)).components_
+def _cluster(objects: List[ClusterableObject]):
+    embeddings = np.array([obj.embedding for obj in objects])
+    distance_matrix = cosine_distances(embeddings)
+
+    # Run DBSCAN
+    clustering = DBSCAN(eps=0.11, min_samples=3, metric="precomputed").fit(
+        distance_matrix
+    )
+
+    # Group the objects into clusters based on the labels
+    labels_to_objs = {}
+    for label, obj in zip(clustering.labels_, objects):
+        if label == -1:
+            continue
+        if label not in labels_to_objs:
+            labels_to_objs[label] = []
+        labels_to_objs[label].append(obj)
+
+    # Convert the dictionary values to a list of lists for the clustered objects
+    return list(labels_to_objs.values())
 
 
-def __fetch_similar_deduplicated_card(
+def _fetch_similar_deduplicated_card(
     candidate: ValuesCard, deduplication_id: int
 ) -> DeduplicatedCard | None:
-    similar_cards = __similarity_search(candidate, deduplication_id)
+    similar_cards = _similarity_search(candidate, deduplication_id)
     if not similar_cards:
         return None
     user_prompt = json.dumps(
         {
-            "input_values_card": candidate,
+            "input_values_card": {"policies": candidate.policies},
             "canonical_values_cards": [
                 {"id": c.id, "policies": c.policies} for c in similar_cards
             ],
@@ -113,7 +137,7 @@ def __fetch_similar_deduplicated_card(
     return next((c for c in similar_cards if c.id == matching_id), None)
 
 
-def __get_representative(card_ids: List[int]):
+def _get_representative(card_ids: List[int]):
     cards = db.valuescard.find_many(where={"id": {"in": card_ids}})
     if len(cards) == 1:
         return cards[0]
@@ -124,56 +148,67 @@ def __get_representative(card_ids: List[int]):
     return next((c for c in cards if c.id == best_values_card_id))
 
 
-def __create_deduplicated_card(card: ValuesCard, deduplication_id: int):
+def _create_deduplicated_card(card: ValuesCard, deduplication_id: int):
     canonical = db.deduplicatedcard.create(
         data={
-            "deduplicationId": deduplication_id,
             "title": card.title,
             "policies": card.policies,
-            "ValuesCardToDeduplicatedCard": {"create": {"valuesCardId": card.id}},
-        },
+            "deduplicationId": deduplication_id,
+        }
     )
-    embeddings = __embed_card(card)
+    _link_to_deduplicated_card(card.id, canonical.id, deduplication_id)
+    embeddings = _embed_card(card)
     query = f"""UPDATE "DeduplicatedCard" SET embedding = '{json.dumps(embeddings)}'::vector WHERE id = {canonical.id};"""
     db.execute_raw(query)
+    return canonical
 
 
-def __link_to_deduplicated_card(
-    card: ValuesCard, existing_duplicate: DeduplicatedCard, deduplication_id: int
+def _link_to_deduplicated_card(
+    values_card_id: int, deduplicated_card_id: int, deduplication_id: int
 ):
     db.valuescardtodeduplicatedcard.create(
         data={
             "deduplicationId": deduplication_id,
-            "deduplicatedCardId": existing_duplicate.id,
-            "valuesCardId": card.id,
-        }
+            "deduplicatedCardId": deduplicated_card_id,
+            "valuesCardId": values_card_id,
+        },
     )
-    print(f"Linked card {card.id} to existing canonical card")
+
+    print(
+        "Linked card ",
+        values_card_id,
+        "to existing deduplicate card ",
+        deduplicated_card_id,
+        "for deduplication ",
+        deduplication_id,
+    )
 
 
-def embed():
+def embed(generation_id: int):
     """Embed all ValuesCards."""
 
     db.connect()
-    cards = db.query_raw(
-        """SELECT * FROM "ValuesCard" WHERE embedding IS NULL""", model=ValuesCard
-    )
+    query = f"""SELECT "id", "title", "policies", "generationId", "createdAt", "updatedAt" FROM "ValuesCard" WHERE "generationId" = {generation_id} AND "embedding" IS NULL;"""
+    cards = db.query_raw(query, model=ValuesCard)
     for card in tqdm(cards):
-        embeddings = __embed_card(card)
-        query = f"""UPDATE "DeduplicatedCard" SET embedding = '{json.dumps(embeddings)}'::vector WHERE id = {card.id};"""
+        embeddings = _embed_card(card)
+        query = f"""UPDATE "ValuesCard" SET embedding = '{json.dumps(embeddings)}'::vector WHERE id = {card.id};"""
         db.execute_raw(query)
     db.disconnect()
 
 
-def seed():
+def seed(generation_id: int):
     """Seed a new deduplication."""
 
     db.connect()
     deduplication = db.deduplication.create(data={"gitCommitHash": "TODO"})  # TODO
     cards = db.query_raw(
-        'SELECT id, embedding::real[] FROM "ValuesCard"', model=ClusterableObject
+        # f"""SELECT id, embedding::real[] FROM "ValuesCard" WHERE "generationId" = {generation_id} AND embedding IS NOT NULL;""", # TODO
+        f"""SELECT id, embedding::real[] FROM "ValuesCard" WHERE embedding IS NOT NULL;""",
+        model=ClusterableObject,
     )
-    clusters = [c.id for c in __cluster(cards)]  # TODO: right model
+    print(len(cards))
+    clusters = [[c.id for c in cluster] for cluster in _cluster(cards)]
     print(f"Found {len(clusters)} clusters.")
 
     for i, c in tqdm(
@@ -182,29 +217,41 @@ def seed():
         if len(c) < 2:
             print(f"Skipping cluster {i} with only {len(c)} cards...")
         else:
-            __create_deduplicated_card(__get_representative(c), deduplication.id)
+            representative = _get_representative(c)
+            canonical = _create_deduplicated_card(representative, deduplication.id)
+            for card_id in [id for id in c if id != representative.id]:
+                _link_to_deduplicated_card(card_id, canonical.id, deduplication.id)
+
+    print("Created and seeded a new deduplication run: ", deduplication.id)
+    return deduplication.id
 
 
 def deduplicate() -> None:
     """Deduplicate all non-deduplicated cards for the latest deduplication generation."""
 
     db.connect()
-    deduplication = db.deduplication.find_first(order={"createdAt": "desc"})
+    deduplication = db.deduplication.find_first(
+        where={"state": ProcessState.IN_PROGRESS}, order={"createdAt": "desc"}
+    )
     if not deduplication:
-        return print("No seed clusters exist for deduplication. Run `seed()` first.")
+        return print("No seed clusters exist for deduplication. Run `seed()` first!")
     cards = db.valuescard.find_many(
         where={
             "ValuesCardToDeduplicatedCard": {
                 "none": {"deduplicationId": deduplication.id}
-            }
+            },
         },
         take=100,
     )
     for card in tqdm(cards):
-        existing_duplicate = __fetch_similar_deduplicated_card(card, deduplication.id)
+        existing_duplicate = _fetch_similar_deduplicated_card(card, deduplication.id)
         if existing_duplicate:
-            __link_to_deduplicated_card(card, existing_duplicate, deduplication.id)
+            _link_to_deduplicated_card(card.id, existing_duplicate.id, deduplication.id)
         else:
-            __create_deduplicated_card(card, deduplication.id)
+            _create_deduplicated_card(card, deduplication.id)
     print(f"Deduplicated {len(cards)} cards for deduplication {deduplication.id}.")
+
+    db.deduplication.update(
+        where={"id": deduplication.id}, data={"state": ProcessState.FINISHED}
+    )
     db.disconnect()

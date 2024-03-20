@@ -64,6 +64,12 @@ class MoralGraph:
         return serialize(self)
 
     @classmethod
+    def from_file(cls, path):
+        with open(path, "r") as f:
+            data = json.load(f)
+        return cls.from_json(data)
+
+    @classmethod
     def from_json(cls, data):
         values = [
             Value(id=v["id"], data=ValuesData(**v["data"])) for v in data["values"]
@@ -81,11 +87,12 @@ class MoralGraph:
         with open(f"./outputs/graph_{self.__hash__()}.json", "w") as f:
             json.dump(self.to_json(), f, indent=2)
 
-    def save_to_db(self):
+    def save_to_db(self, generation_id: int | None = None):
         db = Prisma()
         db.connect()
         # git_commit = os.popen("git rev-parse HEAD").read().strip() TODO: fix this
-        generation = db.graphgeneration.create({"gitCommitHash": "foobar"})
+        if not generation_id:
+            generation_id = db.generation.create({"gitCommitHash": "foobar"}).id
 
         print("Adding values to db, in batches of 1000")
         for i in range(0, len(self.values), 1000):
@@ -95,24 +102,26 @@ class MoralGraph:
                     {
                         "title": value.data.title,
                         "policies": value.data.policies,
-                        "graphGenerationId": generation.id,  # TODO: fix this
+                        "generationId": generation_id,
                     }
                     for value in batch
                 ],
-                skip_duplicates=True,
             )
 
         print("Adding contexts to db, in batches of 1000")
         for i in range(0, len(self.edges), 1000):
             batch = self.edges[i : i + 1000]
             db.context.create_many(
-                [{"id": c} for c in list(set([e.context for e in batch]))],
+                [
+                    {"name": c, "generationId": generation_id}
+                    for c in list(set([e.context for e in batch]))
+                ],
                 skip_duplicates=True,
             )
 
         # map the db values to their corresponding uuids, so we can link our edges to them
         db_values = db.valuescard.find_many(
-            where={"graphGenerationId": generation.id}, order={"id": "desc"}
+            where={"generationId": generation_id}, order={"id": "desc"}
         )
         uuid_to_id = {v.id: dbv.id for v, dbv in zip(self.values, db_values)}
 
@@ -125,8 +134,8 @@ class MoralGraph:
                         "fromId": uuid_to_id[edge.from_id],
                         "toId": uuid_to_id[edge.to_id],
                         "metadata": Json({**dict(serialize(edge.metadata))}),
-                        "context": edge.context,
-                        "graphGenerationId": generation.id,
+                        "contextName": edge.context,
+                        "generationId": generation_id,
                     }
                     for edge in batch
                 ],
@@ -134,11 +143,11 @@ class MoralGraph:
             )
 
         # mark the generation as finished
-        db.graphgeneration.update(
-            {"state": ProcessState.FINISHED}, where={"id": generation.id}
+        db.generation.update(
+            {"state": ProcessState.FINISHED}, where={"id": generation_id}
         )
         db.disconnect()
-        print(f"Saved graph to db with generation id {generation.id}")
+        print(f"Saved graph to db with generation id {generation_id}")
 
 
 def generate_value(

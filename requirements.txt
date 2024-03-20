@@ -15,3 +15,4 @@ prisma
 prisma-client
 importlib
 mypy
+gitpython
