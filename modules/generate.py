@@ -1,10 +1,9 @@
 from collections import Counter
-import os
 import time
 from typing import List, Tuple
 
 from tqdm import tqdm
-from functions import gpt4
+from gpt import gpt4
 from utils import parse_to_dict
 from prompt_segments import *
 import json
@@ -16,10 +15,10 @@ from utils import calculate_price, serialize
 
 
 class ValuesData:
-    def __init__(self, title: str, policies: List[str], choiceType: str):
+    def __init__(self, title: str, policies: List[str], choice_type: str):
         self.title = title
         self.policies = policies
-        self.choiceType = choiceType
+        self.choice_type = choice_type
 
 
 class Value:
@@ -86,7 +85,7 @@ class MoralGraph:
         db = Prisma()
         db.connect()
         # git_commit = os.popen("git rev-parse HEAD").read().strip() TODO: fix this
-        generation = db.generation.create({"gitCommitHash": "foobar"})
+        generation = db.graphgeneration.create({"gitCommitHash": "foobar"})
 
         print("Adding values to db, in batches of 1000")
         for i in range(0, len(self.values), 1000):
@@ -96,7 +95,7 @@ class MoralGraph:
                     {
                         "title": value.data.title,
                         "policies": value.data.policies,
-                        "generationId": generation.id,
+                        "graphGenerationId": generation.id,
                     }
                     for value in batch
                 ],
@@ -113,7 +112,7 @@ class MoralGraph:
 
         # map the db values to their corresponding uuids, so we can link our edges to them
         db_values = db.valuescard.find_many(
-            where={"generationId": generation.id}, order={"id": "desc"}
+            where={"graphGenerationId": generation.id}, order={"id": "desc"}
         )
         uuid_to_id = {v.id: dbv.id for v, dbv in zip(self.values, db_values)}
 
@@ -127,7 +126,7 @@ class MoralGraph:
                         "toId": uuid_to_id[edge.to_id],
                         "metadata": Json({**dict(serialize(edge.metadata))}),
                         "context": edge.context,
-                        "generationId": generation.id,
+                        "graphGenerationId": generation.id,
                     }
                     for edge in batch
                 ],
@@ -135,7 +134,7 @@ class MoralGraph:
             )
 
         # mark the generation as finished
-        db.generation.update(
+        db.graphgeneration.update(
             {"state": ProcessState.FINISHED}, where={"id": generation.id}
         )
         db.disconnect()
@@ -206,7 +205,9 @@ Good ways to get ones bearings
     response_dict = parse_to_dict(response)
     policies_text = response_dict["Generalized Attentional Policies"]
     policies = [
-        ap.strip() for ap in policies_text.split("\n") if ap.strip()
+        ap.strip()
+        for ap in policies_text.split("\n")
+        if ap.strip()
         # ap.strip()
         # for ap in response.split("# Generalized Attentional Policies")[1]
         # .split("# Title")[0]
@@ -214,8 +215,8 @@ Good ways to get ones bearings
         # if ap.strip()
     ]
     title = response_dict["Title"]
-    context =  response_dict["Good What, Revised"]
-    values_data = ValuesData(title=title, policies=policies, choiceType=context)
+    context = response_dict["Good What, Revised"]
+    values_data = ValuesData(title=title, policies=policies, choice_type=context)
     return values_data, context
 
 
@@ -256,7 +257,7 @@ Here is an example of such a shift:
 
     user_prompt = json.dumps(
         {
-            "choiceType": context,
+            "choice_type": context,
             "policies": value.policies,
         }
     )
@@ -272,7 +273,7 @@ Here is an example of such a shift:
     wiser_value = ValuesData(
         title=response["wiser_value"]["title"],
         policies=response["wiser_value"]["policies"],
-        choiceType=context,
+        choice_type=context,
     )
     story = response["story"]
     problem = response["problem"]
@@ -360,7 +361,7 @@ Fostering Resilience"""
     wiser_title = response.split("# Wiser Value Title")[1].strip()
 
     wiser_values_data = ValuesData(
-        title=wiser_title, policies=wiser_policies, choiceType=context
+        title=wiser_title, policies=wiser_policies, choice_type=context
     )
 
     return wiser_values_data, story

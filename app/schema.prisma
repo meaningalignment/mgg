@@ -7,11 +7,13 @@ datasource db {
 }
 
 generator client {
-  provider             = "prisma-client-py"
-  previewFeatures      = ["postgresqlExtensions"] // Enable the postgresqlExtensions. Currently in preview
-  interface            = "sync"
-  recursive_type_depth = 5
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"] // Enable the postgresqlExtensions. Currently in preview
 }
+
+//
+// BELOW SHOULD MATCH ../app/schema.prisma
+// 
 
 // A values card, tied to a generation run.
 model ValuesCard {
