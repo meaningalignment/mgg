@@ -28,7 +28,7 @@ wiser_value_definition = """# What makes a value wiser than the previous one?
 - The previous value unnecessarily conflicts with other important values for the context. A wiser value could balance the important good that the value is guarding with other important goods relevant to the context.
 - The previous value might not get at the "heart" of the good it is trying to guard. For example, a value around instilling discipline when parenting could miss that the real good behind it is to help the child grow in agency. There might be other ways of living that better achieves this good, by for example igniting the child's own motivation through curiosity and exploration."""
 
-good_what_specification = """# GoodWhat
+good_what_specification = """# Good What
 
 In any choice, you are choosing a good X, where X is a kind of thing. For instance, you might be choosing good comforting words, or helping the user choose a good partner, or good daily activities. Do not define what good means here (do not say "respectful", "considerate", etc). That goes in the moral considerations. Also don't say "guidance" unless that's realy core to the situation. Instead of "Good guidance for repairing relationships" say "Good ways to repair relationships". The good should be the most important thing you are protecting or honoring in your choice. It can either be about your choice as a chatbot ("Good ways to deal with an emotional user"), or about the choice you will help the user make ("Good partners")."""
 

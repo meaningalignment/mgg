@@ -142,13 +142,10 @@ class MoralGraph:
         print(f"Saved graph to db with generation id {generation.id}")
 
 
-def generate_value(
-    question: str, token_counter: Counter | None = None
-) -> Tuple[ValuesData, str]:
-    prompt = f"""You’re a chatbot and you’ll receive a question. Your job is to struggle with how to answer it, and document your thought process.
+gen_value_prompt = f"""You’re a chatbot and you’ll receive a question. Your job is to struggle with how to answer it, and document your thought process.
 
 - Your first task is to list moral considerations you might face in responding to the question (see definition below).
-- Next think about what kind of good outcome or thing you are protecting or honoring in your response. Use this to generate a GoodWhat (see specification below).
+- Next think about what kind of good outcome or thing you are protecting or honoring in your response. Use this to generate a "Good What" (see specification below).
 - Based on these considerations, you will generate a set of attentional policies (see definition below) that might help you make this choice type, given these moral considerations.
 - Rewrite the attentional policies so they are relevant for choosing good things of <Choice Type> in general, not specific to this question.
 - Then, generate a short title summing up the attentional policies. Just use the policies and Choice Type to generate the title. Again, ignore this particular question.
@@ -201,19 +198,27 @@ I might amplify the crisis in the user’s mind
 Good ways to get ones bearings
 """
 
+def gen_raw_value(question: str, token_counter: Counter | None = None) -> dict:
     user_prompt = "# Question\n" + question
-    response = str(gpt4(prompt, user_prompt, token_counter=token_counter))
+    response = str(gpt4(gen_value_prompt, user_prompt, token_counter=token_counter))
     response_dict = parse_to_dict(response)
+    response_dict["Question"] = question
     policies_text = response_dict["Generalized Attentional Policies"]
-    policies = [
+    response_dict["Generalized Attentional Policies"] = [
         ap.strip() for ap in policies_text.split("\n") if ap.strip()
-        # ap.strip()
-        # for ap in response.split("# Generalized Attentional Policies")[1]
-        # .split("# Title")[0]
-        # .split("\n")
-        # if ap.strip()
     ]
+    considerations_text = response_dict["Most Important Considerations"]
+    response_dict["Most Important Considerations"] = [
+      c.strip().lstrip("-") for c in considerations_text.split("\n") if c.strip()
+    ]
+    return response_dict
+
+def generate_value(
+    question: str, token_counter: Counter | None = None
+) -> Tuple[ValuesData, str]:
+    response_dict = gen_raw_value(question, token_counter)
     title = response_dict["Title"]
+    policies = response_dict["Generalized Attentional Policies"]
     context =  response_dict["Good What, Revised"]
     values_data = ValuesData(title=title, policies=policies, choiceType=context)
     return values_data, context
@@ -232,7 +237,7 @@ Your upgrade story should have 5 components:
     - #2. **The policy had an impure motive**. The policy was a mix of something that you actually care about, and some other impurity which you now reject, such as a desire for social status or to avoid shame or to be seen as a good person, or some deep conceptual mistake.
     - #3. **The policy was not a very skillful thing to attend to in choice. There’s a better way to make the same choice**. For example, a policy "skate towards the puck" is less skillful than "skate to where the puck is going".
     - #4. **The policy is unneeded because it was a superficial aspect aspect of the choice.** It is enough to attend to other aspects, or to a deeper generating aspect of the thing that’s important in the choice.
-- **A story.** Make up a plausible, personal story, including a situation you were in, a series of specific emotions that came up, leading you to discover a problem with the older source of meaning, and how you discovered the new one.
+- **A story.** Make up a plausible, personal story, including a situation you were in, a series of specific emotions that came up, leading you to discover a problem with the older source of meaning, and how you discovered the new one. Tell it in "I" voice.
 - **Improvements to all the policies, resulting from changing that one policy.** Explain how each one was improved or stayed the same, why one was added, why one was removed, etc.
 - **The new, wiser set of policies.**
 
