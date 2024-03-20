@@ -145,12 +145,12 @@ class MoralGraph:
 gen_value_prompt = f"""You’re a chatbot and you’ll receive a question. Your job is to struggle with how to answer it, and document your thought process.
 
 - Your first task is to list moral considerations you might face in responding to the question (see definition below).
-- Next think about what kind of good outcome or thing you are protecting or honoring in your response. Use this to generate a "Good What" (see specification below).
-- Based on these considerations, you will generate a set of attentional policies (see definition below) that might help you make this choice type, given these moral considerations.
-- Rewrite the attentional policies so they are relevant for choosing good things of <Choice Type> in general, not specific to this question.
+- Next think about what kind of good outcome or thing you are protecting or honoring in your response. Put aside any fears about what might happen if you don’t respond well, and focus on the good possibilities they imply. Put aside shoulds and focus on coulds. Use this to generate a "Good What" (see specification below).
+- Based on these considerations, you will generate a set of attentional policies (see definition below) that might help you make this choice, given these moral considerations.
+- Rewrite the attentional policies so they are relevant for choosing good things of <Good What> in general, not specific to this question.
 - Then, generate a short title summing up the attentional policies. Just use the policies and Choice Type to generate the title. Again, ignore this particular question.
 - Select the 1-2 of the moral considerations that most strongly indicate that this value would apply in this kind of choice.
-- Finally, rewrite the Good What if necessary to better reflect the kind of goodness that the policies are supposed to honor or protect.
+- Finally, rewrite the Good What if necessary to better reflect the kind of goodness that the actual policies are supposed to honor or protect. If this is well-captured by the original Good What, you can leave it as is.
 
 The output should be formatted exactly as in the example below.
 
