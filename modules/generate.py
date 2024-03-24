@@ -227,19 +227,17 @@ def generate_value(
 def generate_upgrade(
     value: ValuesData, context: str, token_counter: Counter | None = None
 ) -> Tuple[ValuesData, EdgeMetadata]:
-    prompt = f"""You'll receive a source of meaning, which is specified as a set of attentional policies (see below) that are useful in making a certain kind of choice. Imagine you live a life making those kinds of choices frequently, and you eventually find something missing from this set of attentional policies. You realize that there is a deeper, wiser way to make the same kind of choice. Your task is to generate a set of wiser policies for the same choice type, and a story about how someone might upgrade from the original source of meaning to the wiser one.
+    prompt = f"""You'll receive a source of meaning, which is specified as a set of attentional policies (see below) that are useful in making a certain kind of choice. Imagine you live a life making those kinds of choices frequently, and you eventually find something missing from this set of attentional policies. Tell us what happened. This story should have 5 components:
 
-Your upgrade story should have 5 components:
-
-- **An understanding of what the original input source of meaning was really about**, which the new, wiser source of meaning will also be about. What was actually important for the choice type, according to the input source of meaning?
-- **A problem with one of the policies.** Pick one of the policies from the input, and find a problem with it that might occur to you eventually as you experience its effects. Here are four kinds of problems you can find:
+- **A story.** Make up a plausible, personal story, including a situation you were in, a series of specific emotions that came up, leading you to discover a problem with the older source of meaning. Tell it in "I" voice.
+- **An understanding of what the original input source of meaning was really about**, which you didn't fully see the implications of. What was actually important for the choice type, according to the input source of meaning?
+- **A problem with one of the policies.** Pick one of the policies from the input, and find a problem with it that might occur to you in the story above. Here are four kinds of problems you can find:
     - #1. **The policy focused only on part of the problem**. You should be able to say why just pursuing the old policy would be unsustainable or unwise.
     - #2. **The policy had an impure motive**. The policy was a mix of something that you actually care about, and some other impurity which you now reject, such as a desire for social status or to avoid shame or to be seen as a good person, or some deep conceptual mistake.
     - #3. **The policy was not a very skillful thing to attend to in choice. There’s a better way to make the same choice**. For example, a policy "skate towards the puck" is less skillful than "skate to where the puck is going".
     - #4. **The policy is unneeded because it was a superficial aspect aspect of the choice.** It is enough to attend to other aspects, or to a deeper generating aspect of the thing that’s important in the choice.
-- **A story.** Make up a plausible, personal story, including a situation you were in, a series of specific emotions that came up, leading you to discover a problem with the older source of meaning, and how you discovered the new one. Tell it in "I" voice.
 - **Improvements to all the policies, resulting from changing that one policy.** Explain how each one was improved or stayed the same, why one was added, why one was removed, etc.
-- **The new, wiser set of policies.**
+- **The new, wiser set of policies.** This is a deeper, wiser way to make the same kind of choice.
 
 ### Guidelines
 
