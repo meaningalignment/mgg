@@ -95,6 +95,10 @@ upgrade_function = {
     "parameters": {
         "type": "object",
         "properties": {
+            "story": {
+                "description": "A story that illustrates the upgrade process.",
+                "type": "string",
+            },
             "input_value_was_really_about": {
                 "description": "What was really important in the input source of meaning, for the given choice?",
                 "type": "string",
@@ -113,10 +117,6 @@ upgrade_function = {
                     },
                 },
                 "required": ["policy", "problem"],
-            },
-            "story": {
-                "description": "A story that illustrates the upgrade process.",
-                "type": "string",
             },
             "improvements": {
                 "description": "A list of improvements made to the input policies, with the rationale behind each improvement.",
@@ -154,9 +154,9 @@ upgrade_function = {
             },
         },
         "required": [
+            "story",
             "input_value_was_really_about",
             "problem",
-            "story",
             "improvements",
             "wiser_value",
         ],
