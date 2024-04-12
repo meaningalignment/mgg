@@ -68,7 +68,7 @@ model DeduplicatedCard {
   createdAt                    DateTime                       @default(now())
   updatedAt                    DateTime                       @updatedAt
   deduplicationId              Int
-  embedding                    Unsupported("vector(1536)")?
+  embedding                    Unsupported("vector(1536)")? // has to be null, as it is unsupported and can only be modified through direct queries.
   Deduplication                Deduplication                  @relation(fields: [deduplicationId], references: [id], onDelete: Cascade)
   From                         DeduplicatedEdge[]             @relation("from")
   To                           DeduplicatedEdge[]             @relation("to")
@@ -99,7 +99,7 @@ model DeduplicatedContext {
   createdAt                    DateTime                       @default(now())
   updatedAt                    DateTime                       @updatedAt
   deduplicationId              Int
-  embedding                    Unsupported("vector(1536)")?
+  embedding                    Unsupported("vector(1536)")? // has to be null, as it is unsupported and can only be modified through direct queries.
   DeduplicatedEdge             DeduplicatedEdge[]
   Deduplication                Deduplication                  @relation(fields: [deduplicationId], references: [id], onDelete: Cascade)
   ContextToDeduplicatedContext ContextToDeduplicatedContext[]

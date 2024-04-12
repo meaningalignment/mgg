@@ -81,7 +81,10 @@ best_function = {
 
 
 def _embed_card(card: ValuesCard | DeduplicatedCard) -> List[float]:
-    text = "\n".join(card.policies)  # TODO - include something about choice type.
+    text = (
+        "It feels meaningful to pay attention to the following in choices:\n"
+        + "\n".join(card.policies)
+    )  # TODO - include something about choice type.
     response = client.embeddings.create(model="text-embedding-3-small", input=text)
     return response.data[0].embedding
 
@@ -89,9 +92,15 @@ def _embed_card(card: ValuesCard | DeduplicatedCard) -> List[float]:
 def _similarity_search(
     candidate: ValuesCard, deduplication_id: int, limit: int = 5, threshold: float = 0.1
 ) -> List[DeduplicatedCard]:
-    embeddings = _embed_card(candidate)
-    query = f"""SELECT DISTINCT c.id, c.title, c.policies, c."createdAt", c."updatedAt", c."deduplicationId", c.embedding <=> '{json.dumps(embeddings)}'::vector as "distance" FROM "DeduplicatedCard" c WHERE "deduplicationId" = {deduplication_id} ORDER BY "distance" ASC LIMIT {limit};"""
+    # get embeddings from db
+    query = f"""SELECT id, embedding::real[] FROM "ValuesCard" WHERE id = {candidate.id} AND embedding IS NOT NULL;"""
+    result = db.query_raw(query, model=ClusterableObject)
+    embeddings = result[0].embedding
+
+    # search for similar cards
+    query = f"""SELECT DISTINCT c.id, c.title, c.policies, c."createdAt", c."updatedAt", c."deduplicationId", c.embedding <=> '{json.dumps(embeddings)}'::vector as "distance" FROM "DeduplicatedCard" c WHERE "deduplicationId" = {deduplication_id} AND "embedding" IS NOT NULL ORDER BY "distance" ASC LIMIT {limit};"""
     result = db.query_raw(query, model=CardWithDistance)
+
     return [r for r in result if r.distance < threshold]
 
 
@@ -149,6 +158,7 @@ def _get_representative(card_ids: List[int]):
 
 
 def _create_deduplicated_card(card: ValuesCard, deduplication_id: int):
+    embeddings = _embed_card(card)
     canonical = db.deduplicatedcard.create(
         data={
             "title": card.title,
@@ -157,7 +167,6 @@ def _create_deduplicated_card(card: ValuesCard, deduplication_id: int):
         }
     )
     _link_to_deduplicated_card(card.id, canonical.id, deduplication_id)
-    embeddings = _embed_card(card)
     query = f"""UPDATE "DeduplicatedCard" SET embedding = '{json.dumps(embeddings)}'::vector WHERE id = {canonical.id};"""
     db.execute_raw(query)
     return canonical
@@ -177,18 +186,18 @@ def _link_to_deduplicated_card(
     print(
         "Linked card ",
         values_card_id,
-        "to existing deduplicate card ",
+        "to deduplicated card ",
         deduplicated_card_id,
         "for deduplication ",
         deduplication_id,
     )
 
 
-def embed(generation_id: int):
+def embed():
     """Embed all ValuesCards."""
-
-    db.connect()
-    query = f"""SELECT "id", "title", "policies", "generationId", "createdAt", "updatedAt" FROM "ValuesCard" WHERE "generationId" = {generation_id} AND "embedding" IS NULL;"""
+    if not db.is_connected():
+        db.connect()
+    query = f"""SELECT "id", "title", "policies", "generationId", "createdAt", "updatedAt" FROM "ValuesCard" WHERE "embedding" IS NULL;"""
     cards = db.query_raw(query, model=ValuesCard)
     for card in tqdm(cards):
         embeddings = _embed_card(card)
@@ -197,16 +206,13 @@ def embed(generation_id: int):
     db.disconnect()
 
 
-def seed(generation_id: int):
+def seed():
     """Seed a new deduplication."""
-
-    db.connect()
+    if not db.is_connected():
+        db.connect()
     deduplication = db.deduplication.create(data={"gitCommitHash": "TODO"})  # TODO
-    cards = db.query_raw(
-        # f"""SELECT id, embedding::real[] FROM "ValuesCard" WHERE "generationId" = {generation_id} AND embedding IS NOT NULL;""", # TODO
-        f"""SELECT id, embedding::real[] FROM "ValuesCard" WHERE embedding IS NOT NULL;""",
-        model=ClusterableObject,
-    )
+    query = f"""SELECT id, embedding::real[] FROM "ValuesCard" WHERE embedding IS NOT NULL;"""
+    cards = db.query_raw(query, model=ClusterableObject)
     print(len(cards))
     clusters = [[c.id for c in cluster] for cluster in _cluster(cards)]
     print(f"Found {len(clusters)} clusters.")
@@ -223,26 +229,43 @@ def seed(generation_id: int):
                 _link_to_deduplicated_card(card_id, canonical.id, deduplication.id)
 
     print("Created and seeded a new deduplication run: ", deduplication.id)
-    return deduplication.id
+    return deduplication
 
 
 def deduplicate() -> None:
     """Deduplicate all non-deduplicated cards for the latest deduplication generation."""
+    embed()  # embed all cards.
 
     db.connect()
     deduplication = db.deduplication.find_first(
         where={"state": ProcessState.IN_PROGRESS}, order={"createdAt": "desc"}
     )
-    if not deduplication:
-        return print("No seed clusters exist for deduplication. Run `seed()` first!")
-    cards = db.valuescard.find_many(
-        where={
-            "ValuesCardToDeduplicatedCard": {
-                "none": {"deduplicationId": deduplication.id}
+
+    if deduplication:
+        print("Continuing deduplication ", deduplication.id)
+    else:
+        print("Creating a new deduplication...")
+        deduplication = seed()
+
+    # Get all cards that have not been deduplicated yet, in batches of 100.
+    offset = 0
+    cards: List[ValuesCard] = []
+    while True:
+        batch = db.valuescard.find_many(
+            where={
+                "ValuesCardToDeduplicatedCard": {
+                    "none": {"deduplicationId": deduplication.id}
+                },
             },
-        },
-        take=100,
-    )
+            skip=offset,
+            take=100,
+        )
+        if not batch:
+            break
+        offset += 100
+        cards.extend(batch)
+
+    # Deduplicate the cards
     for card in tqdm(cards):
         existing_duplicate = _fetch_similar_deduplicated_card(card, deduplication.id)
         if existing_duplicate:
@@ -255,3 +278,11 @@ def deduplicate() -> None:
         where={"id": deduplication.id}, data={"state": ProcessState.FINISHED}
     )
     db.disconnect()
+
+
+def main():
+    deduplicate()
+
+
+if __name__ == "__main__":
+    main()
