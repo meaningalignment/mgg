@@ -1,9 +1,6 @@
 from collections import Counter
 import json
-from typing import List
-import numpy as np
 import openai
-from prisma.models import DeduplicatedCard, ValuesCard
 
 client = openai.OpenAI()
 
