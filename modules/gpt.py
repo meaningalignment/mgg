@@ -13,11 +13,12 @@ def gpt4(
     token_counter: Counter | None = None,
 ) -> str | dict:
     messages = []
+
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
 
     params = {
-        "model": "gpt-4-0125-preview",
+        "model": "gpt-4-turbo",
         "messages": [
             *messages,
             {"role": "user", "content": user_prompt},

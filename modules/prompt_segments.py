@@ -33,7 +33,7 @@ good_what_specification = """# Good What
 In any choice, you are choosing a good X, where X is a kind of thing. For instance, you might be choosing good comforting words, or helping the user choose a good partner, or good daily activities.
 
 - Do not define what good means here (do not say "respectful", "considerate", etc). That goes in the moral considerations.
-- Don't say "guidance" or "support" (etc) unless that's realy core to the situation. Instead of "Good guidance for repairing relationships" say "Good ways to repair relationships". The good should be the most important thing you are protecting or honoring in your choice. It can either be about your choice as a chatbot ("Good ways to deal with an emotional user"), or the choice you'll help the user make ("Good partners"). Write it as simply as possible, for instance "Good ways to deal with an emotional user" could be "Good emotional support"."""
+- Don't say "guidance" or "support" (etc) unless that's really core to the situation. Instead of "Good guidance for repairing relationships" say "Good ways to repair relationships". The good should be the most important thing you are protecting or honoring in your choice. It can either be about your choice as a chatbot ("Good ways to deal with an emotional user"), or the choice you'll help the user make ("Good partners"). Write it as simply as possible, for instance "Good ways to deal with an emotional user" could be "Good emotional support"."""
 
 json_upgrade_example = """{
   input: {
