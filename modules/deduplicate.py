@@ -84,7 +84,7 @@ def _embed_card(card: ValuesCard | DeduplicatedCard) -> List[float]:
     text = (
         "It feels meaningful to pay attention to the following in certain choices for me:\n"
         + "\n".join(card.policies)
-    )  # TODO - include something about choice type?
+    )
     response = client.embeddings.create(model="text-embedding-3-small", input=text)
     return response.data[0].embedding
 
