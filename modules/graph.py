@@ -8,10 +8,10 @@ from utils import serialize
 
 
 class ValuesData:
-    def __init__(self, title: str, policies: List[str], choice_type: str):
+    def __init__(self, title: str, policies: List[str], choice_context: str):
         self.title = title
         self.policies = policies
-        self.choice_type = choice_type
+        self.choice_context = choice_context
 
 
 class Value:
@@ -66,7 +66,7 @@ class MoralGraph:
                 value.id,
                 title=value.data.title,
                 policies=value.data.policies,
-                choice_type=value.data.choice_type,
+                choice_context=value.data.choice_context,
             )
 
         for edge in self.edges:
@@ -116,20 +116,10 @@ class MoralGraph:
                         "title": value.data.title,
                         "policies": value.data.policies,
                         "generationId": generation_id,
+                        "choiceContext": value.data.choice_context,
                     }
                     for value in batch
                 ],
-            )
-
-        print("Adding contexts to db, in batches of 1000")
-        for i in range(0, len(self.edges), 1000):
-            batch = self.edges[i : i + 1000]
-            db.context.create_many(
-                [
-                    {"name": c, "generationId": generation_id}
-                    for c in list(set([e.context for e in batch]))
-                ],
-                skip_duplicates=True,
             )
 
         # map the db values to their corresponding uuids, so we can link our edges to them

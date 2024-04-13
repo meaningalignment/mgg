@@ -4,8 +4,8 @@ from pydantic import BaseModel
 from sklearn.cluster import DBSCAN
 import numpy as np
 import json
-from prisma import Prisma
-from prisma.models import DeduplicatedCard, ValuesCard
+from prisma import Json, Prisma
+from prisma.models import DeduplicatedCard, ValuesCard, Deduplication
 from prisma.enums import ProcessState
 from tqdm import tqdm
 from gpt import gpt4
@@ -82,9 +82,9 @@ best_function = {
 
 def _embed_card(card: ValuesCard | DeduplicatedCard) -> List[float]:
     text = (
-        "It feels meaningful to pay attention to the following in choices:\n"
+        "It feels meaningful to pay attention to the following in certain choices for me:\n"
         + "\n".join(card.policies)
-    )  # TODO - include something about choice type.
+    )  # TODO - include something about choice type?
     response = client.embeddings.create(model="text-embedding-3-small", input=text)
     return response.data[0].embedding
 
@@ -193,12 +193,13 @@ def _link_to_deduplicated_card(
     )
 
 
-def embed():
+def _embed_cards():
     """Embed all ValuesCards."""
     if not db.is_connected():
         db.connect()
     query = f"""SELECT "id", "title", "policies", "generationId", "createdAt", "updatedAt" FROM "ValuesCard" WHERE "embedding" IS NULL;"""
     cards = db.query_raw(query, model=ValuesCard)
+    print("Embedding all values cards...")
     for card in tqdm(cards):
         embeddings = _embed_card(card)
         query = f"""UPDATE "ValuesCard" SET embedding = '{json.dumps(embeddings)}'::vector WHERE id = {card.id};"""
@@ -206,20 +207,32 @@ def embed():
     db.disconnect()
 
 
-def seed():
-    """Seed a new deduplication."""
+def _get_or_create_deduplication():
     if not db.is_connected():
         db.connect()
+    deduplication = db.deduplication.find_first(
+        where={"state": ProcessState.IN_PROGRESS}, order={"createdAt": "desc"}
+    )
+
+    if deduplication:
+        print("Continuing deduplication ", deduplication.id)
+        db.disconnect()
+        return deduplication
+
+    print("Creating a new deduplication...")
+
     deduplication = db.deduplication.create(data={"gitCommitHash": "TODO"})  # TODO
+
+    # Cluster non-deduplicated cards.
     query = f"""SELECT id, embedding::real[] FROM "ValuesCard" WHERE embedding IS NOT NULL;"""
     cards = db.query_raw(query, model=ClusterableObject)
-    print(len(cards))
+    if not cards:
+        raise ValueError("No cards to deduplicate.")
     clusters = [[c.id for c in cluster] for cluster in _cluster(cards)]
-    print(f"Found {len(clusters)} clusters.")
+    print(f"Found {len(clusters)} clusters for {len(cards)} cards.")
 
-    for i, c in tqdm(
-        enumerate(clusters)
-    ):  # TODO: sanity check that this is the right approach.
+    # Create a deduplicated card for each cluster.
+    for i, c in tqdm(enumerate(clusters)):
         if len(c) < 2:
             print(f"Skipping cluster {i} with only {len(c)} cards...")
         else:
@@ -228,42 +241,23 @@ def seed():
             for card_id in [id for id in c if id != representative.id]:
                 _link_to_deduplicated_card(card_id, canonical.id, deduplication.id)
 
-    print("Created and seeded a new deduplication run: ", deduplication.id)
+    db.disconnect()
     return deduplication
 
 
-def deduplicate() -> None:
+def _deduplicate_cards(deduplication: Deduplication) -> None:
     """Deduplicate all non-deduplicated cards for the latest deduplication generation."""
-    embed()  # embed all cards.
+    if not db.is_connected():
+        db.connect()
 
-    db.connect()
-    deduplication = db.deduplication.find_first(
-        where={"state": ProcessState.IN_PROGRESS}, order={"createdAt": "desc"}
-    )
-
-    if deduplication:
-        print("Continuing deduplication ", deduplication.id)
-    else:
-        print("Creating a new deduplication...")
-        deduplication = seed()
-
-    # Get all cards that have not been deduplicated yet, in batches of 100.
-    offset = 0
-    cards: List[ValuesCard] = []
-    while True:
-        batch = db.valuescard.find_many(
-            where={
-                "ValuesCardToDeduplicatedCard": {
-                    "none": {"deduplicationId": deduplication.id}
-                },
+    # Get all cards that have not been deduplicated yet.
+    cards = db.valuescard.find_many(
+        where={
+            "ValuesCardToDeduplicatedCard": {
+                "none": {"deduplicationId": deduplication.id}
             },
-            skip=offset,
-            take=100,
-        )
-        if not batch:
-            break
-        offset += 100
-        cards.extend(batch)
+        }
+    )
 
     # Deduplicate the cards
     for card in tqdm(cards):
@@ -274,15 +268,111 @@ def deduplicate() -> None:
             _create_deduplicated_card(card, deduplication.id)
     print(f"Deduplicated {len(cards)} cards for deduplication {deduplication.id}.")
 
+    db.disconnect()
+
+
+def _deduplicate_edges(deduplication: Deduplication) -> None:
+    """Deduplicate all edges for the latest deduplication generation."""
+    if not db.is_connected():
+        db.connect()
+
+    # Find all edges that are not deduplicated yet.
+    edges = db.edge.find_many(
+        where={
+            "EdgeToDeduplicatedEdge": {
+                "none": {"DeduplicatedEdge": {"deduplicationId": deduplication.id}}
+            }
+        }
+    )
+    # Add all contexts to the database for the deduplication.
+    contexts = list(set([e.contextName for e in edges]))
+    for context in contexts:
+        db.deduplicatedcontext.upsert(
+            where={
+                "name_deduplicationId": {
+                    "name": context,
+                    "deduplicationId": deduplication.id,
+                }
+            },
+            data={
+                "create": {"name": context, "deduplicationId": deduplication.id},
+                "update": {},
+            },
+        )
+    # Deduplicate all edges.
+    for edge in tqdm(edges):
+        # Find the deduplicated cards for the edge.
+        from_deduplicated_card = db.deduplicatedcard.find_first(
+            where={
+                "ValuesCardToDeduplicatedCard": {"some": {"valuesCardId": edge.fromId}},
+                "deduplicationId": deduplication.id,
+            }
+        )
+        to_deduplicated_card = db.deduplicatedcard.find_first(
+            where={
+                "ValuesCardToDeduplicatedCard": {"some": {"valuesCardId": edge.toId}},
+                "deduplicationId": deduplication.id,
+            }
+        )
+        if not from_deduplicated_card or not to_deduplicated_card:
+            print(
+                f"Could not find deduplicated cards for values cards {edge.fromId} and {edge.toId}"
+            )
+            continue
+        if from_deduplicated_card.id == to_deduplicated_card.id:
+            print(
+                f"Two cards in an edge are the same deduplicated card: {from_deduplicated_card.id}"
+            )
+            continue
+        print("Deduplicating edge from", edge.fromId, "to", edge.toId)
+        # Reconstruct the edge between the two deduplicated cards.
+        db.deduplicatededge.upsert(
+            where={
+                "fromId_toId_contextName": {
+                    "fromId": from_deduplicated_card.id,
+                    "toId": to_deduplicated_card.id,
+                    "contextName": edge.contextName,
+                }
+            },
+            data={
+                "create": {
+                    "fromId": from_deduplicated_card.id,
+                    "toId": to_deduplicated_card.id,
+                    "metadata": Json(edge.metadata),
+                    "contextName": edge.contextName,
+                    "deduplicationId": deduplication.id,
+                },
+                "update": {},
+            },
+        )
+        db.edgetodeduplicatededge.create(
+            data={
+                "fromId": edge.fromId,
+                "toId": edge.toId,
+                "contextName": edge.contextName,
+                "deduplicatedFromId": from_deduplicated_card.id,
+                "deduplicatedToId": to_deduplicated_card.id,
+                "deduplicatedContextName": edge.contextName,
+            }
+        )
+    db.disconnect()
+
+
+def deduplicate():
+    _embed_cards()
+    # Create or continue deduplication run.
+    deduplication = _get_or_create_deduplication()
+    # Deduplicate cards and edges.
+    _deduplicate_cards(deduplication)
+    _deduplicate_edges(deduplication)
+    # Mark the deduplication as finished.
+    db.connect()
     db.deduplication.update(
         where={"id": deduplication.id}, data={"state": ProcessState.FINISHED}
     )
     db.disconnect()
-
-
-def main():
-    deduplicate()
+    print(f"Finished deduplication {deduplication.id}.")
 
 
 if __name__ == "__main__":
-    main()
+    deduplicate()

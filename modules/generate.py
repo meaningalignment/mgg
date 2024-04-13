@@ -85,7 +85,7 @@ Good ways to get ones bearings
     ]
     title = response_dict["Title"]
     context = response_dict["Good What, Revised"]
-    values_data = ValuesData(title=title, policies=policies, choice_type=context)
+    values_data = ValuesData(title=title, policies=policies, choice_context=context)
     return values_data, context
 
 
@@ -142,7 +142,7 @@ Here is an example of such a shift:
     wiser_value = ValuesData(
         title=response["wiser_value"]["title"],
         policies=response["wiser_value"]["policies"],
-        choice_type=context,
+        choice_context=context,
     )
     story = response["story"]
     problem = response["problem"]
