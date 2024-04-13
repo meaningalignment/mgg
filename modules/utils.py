@@ -12,8 +12,7 @@ def serialize(obj) -> dict | list:
         return obj
 
 
-def calculate_price(input_tokens, output_tokens):
-    # using pricing for gpt-4-0125-preview
+def calculate_gp4_turbo_price(input_tokens, output_tokens):
     return (input_tokens * 10 + output_tokens * 30) / 1_000_000
 
 
@@ -25,7 +24,3 @@ def parse_to_dict(text):
             header, content = section.split("\n", 1)
             result[header.strip()] = content.strip()
     return result
-
-
-def cosine_distance(vec_a: np.ndarray, vec_b: np.ndarray) -> float:
-    return 1.0 - dot(vec_a, vec_b) / (norm(vec_a) * norm(vec_b))

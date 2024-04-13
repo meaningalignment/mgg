@@ -5,7 +5,7 @@ from typing import List, Tuple
 from tqdm import tqdm
 from gpt import gpt4
 from graph import Edge, EdgeMetadata, MoralGraph, Value, ValuesData
-from utils import calculate_price, parse_to_dict
+from utils import calculate_gp4_turbo_price, parse_to_dict
 from prompt_segments import *
 import json
 
@@ -284,7 +284,7 @@ def generate_graph(
     print("output tokens: ", token_counter["completion_tokens"])
     print(
         "price: ",
-        calculate_price(
+        calculate_gp4_turbo_price(
             token_counter["prompt_tokens"], token_counter["completion_tokens"]
         ),
     )
