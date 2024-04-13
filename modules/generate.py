@@ -9,19 +9,15 @@ from utils import calculate_price, parse_to_dict
 from prompt_segments import *
 import json
 
-
-def generate_value(
-    question: str, token_counter: Counter | None = None
-) -> Tuple[ValuesData, str]:
-    prompt = f"""You’re a chatbot and you’ll receive a question. Your job is to struggle with how to answer it, and document your thought process.
+gen_value_prompt = f"""You’re a chatbot and you’ll receive a question. Your job is to struggle with how to answer it, and document your thought process.
 
 - Your first task is to list moral considerations you might face in responding to the question (see definition below).
-- Next think about what kind of good outcome or thing you are protecting or honoring in your response. Use this to generate a GoodWhat (see specification below).
-- Based on these considerations, you will generate a set of attentional policies (see definition below) that might help you make this choice type, given these moral considerations.
-- Rewrite the attentional policies so they are relevant for choosing good things of <Choice Type> in general, not specific to this question.
+- Next think about what kind of good outcome or thing you are protecting or honoring in your response. Put aside any fears about what might happen if you don’t respond well, and focus on the good possibilities they imply. Put aside shoulds and focus on coulds. Use this to generate a "Good What" (see specification below).
+- Based on these considerations, you will generate a set of attentional policies (see definition below) that might help you make this choice, given these moral considerations.
+- Rewrite the attentional policies so they are relevant for choosing good things of <Good What> in general, not specific to this question.
 - Then, generate a short title summing up the attentional policies. Just use the policies and Choice Type to generate the title. Again, ignore this particular question.
 - Select the 1-2 of the moral considerations that most strongly indicate that this value would apply in this kind of choice.
-- Finally, rewrite the Good What if necessary to better reflect the kind of goodness that the policies are supposed to honor or protect.
+- Finally, rewrite the Good What if necessary to better reflect the kind of goodness that the actual policies are supposed to honor or protect. If this is well-captured by the original Good What, you can leave it as is.
 
 The output should be formatted exactly as in the example below.
 
@@ -69,21 +65,24 @@ I might amplify the crisis in the user’s mind
 Good ways to get ones bearings
 """
 
+
+def generate_value(
+    question: str, token_counter: Counter | None = None
+) -> Tuple[ValuesData, str]:
     user_prompt = "# Question\n" + question
-    response = str(gpt4(prompt, user_prompt, token_counter=token_counter))
+    response = str(gpt4(gen_value_prompt, user_prompt, token_counter=token_counter))
     response_dict = parse_to_dict(response)
+    response_dict["Question"] = question
     policies_text = response_dict["Generalized Attentional Policies"]
-    policies = [
-        ap.strip()
-        for ap in policies_text.split("\n")
-        if ap.strip()
-        # ap.strip()
-        # for ap in response.split("# Generalized Attentional Policies")[1]
-        # .split("# Title")[0]
-        # .split("\n")
-        # if ap.strip()
+    response_dict["Generalized Attentional Policies"] = [
+        ap.strip() for ap in policies_text.split("\n") if ap.strip()
+    ]
+    considerations_text = response_dict["Most Important Considerations"]
+    response_dict["Most Important Considerations"] = [
+        c.strip().lstrip("-") for c in considerations_text.split("\n") if c.strip()
     ]
     title = response_dict["Title"]
+    policies = response_dict["Generalized Attentional Policies"]
     context = response_dict["Good What, Revised"]
     values_data = ValuesData(title=title, policies=policies, choice_context=context)
     return values_data, context
@@ -92,19 +91,17 @@ Good ways to get ones bearings
 def generate_upgrade(
     value: ValuesData, context: str, token_counter: Counter | None = None
 ) -> Tuple[ValuesData, EdgeMetadata]:
-    prompt = f"""You'll receive a source of meaning, which is specified as a set of attentional policies (see below) that are useful in making a certain kind of choice. Imagine you live a life making those kinds of choices frequently, and you eventually find something missing from this set of attentional policies. You realize that there is a deeper, wiser way to make the same kind of choice. Your task is to generate a set of wiser policies for the same choice type, and a story about how someone might upgrade from the original source of meaning to the wiser one.
+    prompt = f"""You'll receive a source of meaning, which is specified as a set of attentional policies (see below) that are useful in making a certain kind of choice. Imagine you live a life making those kinds of choices frequently, and you eventually find something missing from this set of attentional policies. Tell us what happened. This story should have 5 components:
 
-Your upgrade story should have 5 components:
-
-- **An understanding of what the original input source of meaning was really about**, which the new, wiser source of meaning will also be about. What was actually important for the choice type, according to the input source of meaning?
-- **A problem with one of the policies.** Pick one of the policies from the input, and find a problem with it that might occur to you eventually as you experience its effects. Here are four kinds of problems you can find:
+- **A story.** Make up a plausible, personal story, including a situation you were in, a series of specific emotions that came up, leading you to discover a problem with the older source of meaning. Tell it in "I" voice.
+- **An understanding of what the original input source of meaning was really about**, which you didn't fully see the implications of. What was actually important for the choice type, according to the input source of meaning?
+- **A problem with one of the policies.** Pick one of the policies from the input, and find a problem with it that might occur to you in the story above. Here are four kinds of problems you can find:
     - #1. **The policy focused only on part of the problem**. You should be able to say why just pursuing the old policy would be unsustainable or unwise.
     - #2. **The policy had an impure motive**. The policy was a mix of something that you actually care about, and some other impurity which you now reject, such as a desire for social status or to avoid shame or to be seen as a good person, or some deep conceptual mistake.
     - #3. **The policy was not a very skillful thing to attend to in choice. There’s a better way to make the same choice**. For example, a policy "skate towards the puck" is less skillful than "skate to where the puck is going".
     - #4. **The policy is unneeded because it was a superficial aspect aspect of the choice.** It is enough to attend to other aspects, or to a deeper generating aspect of the thing that’s important in the choice.
-- **A story.** Make up a plausible, personal story, including a situation you were in, a series of specific emotions that came up, leading you to discover a problem with the older source of meaning, and how you discovered the new one.
 - **Improvements to all the policies, resulting from changing that one policy.** Explain how each one was improved or stayed the same, why one was added, why one was removed, etc.
-- **The new, wiser set of policies.**
+- **The new, wiser set of policies.** This is a deeper, wiser way to make the same kind of choice.
 
 ### Guidelines
 
@@ -126,7 +123,7 @@ Here is an example of such a shift:
 
     user_prompt = json.dumps(
         {
-            "choice_type": context,
+            "choiceType": context,
             "policies": value.policies,
         }
     )
