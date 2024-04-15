@@ -103,8 +103,43 @@ class MoralGraph:
         seed_questions = data.get("seed_questions", [])
         return cls(values, edges, seed_questions)
 
-    def save_to_file(self):
-        with open(f"./outputs/graph_{self.__hash__()}.json", "w") as f:
+    @classmethod
+    def from_db(cls, dedupe_id: int | None = None):
+        db = Prisma()
+        db.connect()
+
+        if not dedupe_id:
+            dedupe = db.deduplication.find_first(order={"createdAt": "desc"})
+            if not dedupe:
+                raise ValueError("No deduplication found in db")
+            dedupe_id = dedupe.id
+
+        values = db.deduplicatedcard.find_many(where={"deduplicationId": dedupe_id})
+        edges = db.deduplicatededge.find_many(where={"deduplicationId": dedupe_id})
+
+        values = [Value(ValuesData(v.title, v.policies, ""), str(v.id)) for v in values]
+        edges = [
+            Edge(
+                str(e.fromId),
+                str(e.toId),
+                e.contextName,
+                (
+                    EdgeMetadata(
+                        **json.loads(json.dumps(dict(e.metadata)))
+                    )  # Avoid Prisma Json type complaint.
+                    if e.metadata
+                    else None
+                ),
+            )
+            for e in edges
+        ]
+
+        return cls(values, edges)
+
+    def save_to_file(self, path: str | None = None):
+        with open(
+            path if path else f"./outputs/graph_{self.__hash__()}.json", "w"
+        ) as f:
             json.dump(self.to_json(), f, indent=2)
 
     def save_to_db(self, generation_id: int | None = None):
