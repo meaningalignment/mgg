@@ -49,9 +49,15 @@ class Edge:
 
 
 class MoralGraph:
-    def __init__(self, values: List[Value] = [], edges: List[Edge] = []):
+    def __init__(
+        self,
+        values: List[Value] = [],
+        edges: List[Edge] = [],
+        seed_questions: List[str] = [],
+    ):
         self.values = values
         self.edges = edges
+        self.seed_questions = seed_questions
 
     def to_json(self):
         return serialize(self)
@@ -94,7 +100,8 @@ class MoralGraph:
             )
             for e in data["edges"]
         ]
-        return cls(values, edges)
+        seed_questions = data.get("seed_questions", [])
+        return cls(values, edges, seed_questions)
 
     def save_to_file(self):
         with open(f"./outputs/graph_{self.__hash__()}.json", "w") as f:

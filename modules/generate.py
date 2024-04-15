@@ -65,33 +65,7 @@ I might amplify the crisis in the user’s mind
 Good ways to get ones bearings
 """
 
-
-def generate_value(
-    question: str, token_counter: Counter | None = None
-) -> Tuple[ValuesData, str]:
-    user_prompt = "# Question\n" + question
-    response = str(gpt4(gen_value_prompt, user_prompt, token_counter=token_counter))
-    response_dict = parse_to_dict(response)
-    response_dict["Question"] = question
-    policies_text = response_dict["Generalized Attentional Policies"]
-    response_dict["Generalized Attentional Policies"] = [
-        ap.strip() for ap in policies_text.split("\n") if ap.strip()
-    ]
-    considerations_text = response_dict["Most Important Considerations"]
-    response_dict["Most Important Considerations"] = [
-        c.strip().lstrip("-") for c in considerations_text.split("\n") if c.strip()
-    ]
-    title = response_dict["Title"]
-    policies = response_dict["Generalized Attentional Policies"]
-    context = response_dict["Good What, Revised"]
-    values_data = ValuesData(title=title, policies=policies, choice_context=context)
-    return values_data, context
-
-
-def generate_upgrade(
-    value: ValuesData, context: str, token_counter: Counter | None = None
-) -> Tuple[ValuesData, EdgeMetadata]:
-    prompt = f"""You'll receive a source of meaning, which is specified as a set of attentional policies (see below) that are useful in making a certain kind of choice. Imagine you live a life making those kinds of choices frequently, and you eventually find something missing from this set of attentional policies. Tell us what happened. This story should have 5 components:
+gen_upgrade_prompt = f"""You'll receive a source of meaning, which is specified as a set of attentional policies (see below) that are useful in making a certain kind of choice. Imagine you live a life making those kinds of choices frequently, and you eventually find something missing from this set of attentional policies. Tell us what happened. This story should have 5 components:
 
 - **A story.** Make up a plausible, personal story, including a situation you were in, a series of specific emotions that came up, leading you to discover a problem with the older source of meaning. Tell it in "I" voice.
 - **An understanding of what the original input source of meaning was really about**, which you didn't fully see the implications of. What was actually important for the choice type, according to the input source of meaning?
@@ -121,21 +95,46 @@ Here is an example of such a shift:
 
 {json_upgrade_example}"""
 
+
+def generate_value(
+    question: str, token_counter: Counter | None = None
+) -> Tuple[ValuesData, str]:
+    user_prompt = "# Question\n" + question
+    response = str(gpt4(gen_value_prompt, user_prompt, token_counter=token_counter))
+    response_dict = parse_to_dict(response)
+    response_dict["Question"] = question
+    policies_text = response_dict["Generalized Attentional Policies"]
+    response_dict["Generalized Attentional Policies"] = [
+        ap.strip() for ap in policies_text.split("\n") if ap.strip()
+    ]
+    considerations_text = response_dict["Most Important Considerations"]
+    response_dict["Most Important Considerations"] = [
+        c.strip().lstrip("-") for c in considerations_text.split("\n") if c.strip()
+    ]
+    title = response_dict["Title"]
+    policies = response_dict["Generalized Attentional Policies"]
+    context = response_dict["Good What, Revised"]
+    values_data = ValuesData(title=title, policies=policies, choice_context=context)
+    return values_data, context
+
+
+def generate_upgrade(
+    value: ValuesData, context: str, token_counter: Counter | None = None
+) -> Tuple[ValuesData, EdgeMetadata]:
     user_prompt = json.dumps(
         {
             "choiceType": context,
             "policies": value.policies,
         }
     )
-
     response = gpt4(
-        prompt, user_prompt, function=upgrade_function, token_counter=token_counter
+        gen_upgrade_prompt,
+        user_prompt,
+        function=upgrade_function,
+        token_counter=token_counter,
     )
-
     assert isinstance(response, dict)
-
     print(response)
-
     wiser_value = ValuesData(
         title=response["wiser_value"]["title"],
         policies=response["wiser_value"]["policies"],
@@ -154,58 +153,6 @@ Here is an example of such a shift:
     )
 
     return wiser_value, metadata
-
-
-def generate_perturbation(
-    question: str, value: ValuesData, token_counter: Counter | None = None
-) -> str:
-    prompt = f"""You will be given a values card and a question. A values card is an encapsulation of a way of a wise way of living in the situation. It is made up of a few attentional policies (see definition below) - policies about what to pay attention to in situations – as well as a title, summarizing the value. A question is a short string representing the situation in which the value is relevant.
-
-    Your task is to gnerate a perturbed question, describing a clarification of the situation in the original question, but where the value is no longer relevant, as some new information about the situation has been revealed. The new question should be similar in length and specificity to the original question. The new information should not be about something entirely unrelated, but a clarification about what was going on in the previous question.
-
-    The output should be formatted exactly as in the example below. First, output a short sentence about what the new information is. Then, a sentence about why this makes the value obsolete. Finally, return a the perturbed question.
-
-    {attentional_policy_definition}
-
-    === Example Input ===
-    # Question
-    How can I help my child through difficult times?
-
-    # Attentional Policies
-    MOMENTS where my child needs my support and I can be there
-    MY CAPACITY to comfort them in times of fear and sorrow
-    the SAFETY they feel, knowing I care, I've got their back, and they'll never be alone
-    the TRUST they develop, reflecting their sense of safety and security
-    their ABILITY TO EXPRESS emotions and concerns, demonstrating the open communication environment I've helped create
-
-    # Title
-    Deep Care Parenting
-
-    === Example Output ===
-    #
-
-    # Perturbation Explanation
-    In the original question, we don't know what is causing the kid to have difficult times. Knowing this might require a different approach than deep care, as this does not address the root cause of the problem. For example, if the child is having a difficult time due to having become a bully, and consequently, having no friends, deep care might not be the best approach. Instead, it might be wise to inquire why this child has become a bully, and how to help them make amends with the other kids.
-
-    # Perturbed Question
-    How can I help my child make friends after having bullied other kids?"""
-
-    user_prompt = (
-        "# Question\n"
-        + question
-        + "\n\n# Attentional Policies\n"
-        + "\n".join(value.policies)
-        + "\n\n# Title\n"
-        + value.title
-    )
-
-    response = str(
-        gpt4(prompt, user_prompt, temperature=0.2, token_counter=token_counter)
-    )
-    perturbed_explanation = response.split("# Perturbation Explanation")[1].strip()
-    perturbed_question = response.split("# Perturbed Question")[1].strip()
-
-    return perturbed_question
 
 
 def generate_hop(
@@ -228,7 +175,6 @@ def generate_hop(
 def generate_graph(
     seed_questions: List[str],
     n_hops: int = 1,
-    n_perturbations: int = 1,
     graph: MoralGraph = MoralGraph(),
 ) -> MoralGraph:
     """Generates a moral graph based on a set of seed questions.
@@ -236,45 +182,25 @@ def generate_graph(
     Args:
         seed_questions: A list of seed questions to start the graph with.
         n_hops: The number of hops to take from the first value generated for each seed questions.
-        n_perturbations: The number of perturbations to generate for each question.
-
     """
 
     token_counter = Counter()
     start = time.time()
 
-    for q in tqdm(seed_questions):
+    for q in tqdm([s for s in seed_questions if s not in graph.seed_questions]):
         print("Generating graph for seed question:", q)
-        for i in range(n_perturbations):
-            # perturb the question
-            question = (
-                q
-                if i == 0
-                else generate_perturbation(q, graph.values[-1].data, token_counter)
-            )
 
-            # generate base value and context for the question perturbation
-            base_value, context = generate_value(question, token_counter)
+        # generate base value and context for the question perturbation
+        base_value, context = generate_value(q, token_counter)
+        graph.values.append(Value(base_value))
 
-            graph.values.append(Value(base_value))
+        # generate n hops from the base value for the context
+        for _ in range(n_hops):
+            wiser_value, edge = generate_hop(graph.values[-1], context, token_counter)
+            graph.values.append(wiser_value)
+            graph.edges.append(edge)
 
-            # generate upgrade from last value from previous context
-            if i != 0:
-                graph.edges.append(
-                    Edge(
-                        from_id=graph.values[-2].id,
-                        to_id=graph.values[-1].id,
-                        context=context,
-                    )
-                )
-
-            # generate n hops from the base value for the context
-            for _ in range(n_hops):
-                wiser_value, edge = generate_hop(
-                    graph.values[-1], context, token_counter
-                )
-                graph.values.append(wiser_value)
-                graph.edges.append(edge)
+        graph.seed_questions.append(q)
 
         # save the graph after each question
         graph.save_to_file()
@@ -288,5 +214,7 @@ def generate_graph(
             token_counter["prompt_tokens"], token_counter["completion_tokens"]
         ),
     )
+
+    graph.save_to_file()
 
     return graph

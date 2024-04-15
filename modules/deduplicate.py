@@ -326,14 +326,24 @@ def _deduplicate_edges(deduplication: Deduplication) -> None:
             continue
         print("Deduplicating edge from", edge.fromId, "to", edge.toId)
         # Reconstruct the edge between the two deduplicated cards.
-        db.deduplicatededge.create(
+        db.deduplicatededge.upsert(
+            where={
+                "fromId_toId_contextName": {
+                    "fromId": from_deduplicated_card.id,
+                    "toId": to_deduplicated_card.id,
+                    "contextName": edge.contextName,
+                }
+            },
             data={
-                "fromId": from_deduplicated_card.id,
-                "toId": to_deduplicated_card.id,
-                "metadata": Json(edge.metadata),
-                "contextName": edge.contextName,
-                "deduplicationId": deduplication.id,
-            }
+                "create": {
+                    "fromId": from_deduplicated_card.id,
+                    "toId": to_deduplicated_card.id,
+                    "metadata": Json(edge.metadata),
+                    "contextName": edge.contextName,
+                    "deduplicationId": deduplication.id,
+                },
+                "update": {},
+            },
         )
         db.edgetodeduplicatededge.create(
             data={

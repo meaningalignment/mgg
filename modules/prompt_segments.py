@@ -91,7 +91,6 @@ A "source of meaning" is a way of living that is important to someone. Something
 upgrade_function = {
     "name": "upgrade_story",
     "description": "Upgrade for a source of meaning to a wiser source of meaning.",
-    "type": "function",
     "parameters": {
         "type": "object",
         "properties": {
