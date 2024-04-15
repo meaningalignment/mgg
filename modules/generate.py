@@ -9,6 +9,8 @@ from utils import calculate_gp4_turbo_price, parse_to_dict
 from prompt_segments import *
 import json
 
+import argparse
+
 gen_value_prompt = f"""You’re a chatbot and you’ll receive a question. Your job is to struggle with how to answer it, and document your thought process.
 
 - Your first task is to list moral considerations you might face in responding to the question (see definition below).
@@ -218,3 +220,37 @@ def generate_graph(
     graph.save_to_file()
 
     return graph
+
+
+if __name__ == "__main__":
+    """Generate a moral graph based on console args and save it to the database."""
+
+    parser = argparse.ArgumentParser(
+        description="Generate a moral graph based on seed questions."
+    )
+    parser.add_argument(
+        "--n_hops",
+        type=int,
+        default=2,
+        help="The number of hops to take from the first value generated for each seed question.",
+    )
+    parser.add_argument(
+        "--seed_questions",
+        type=str,
+        required=True,
+        help="The path to the file containing seed questions.",
+    )
+    args = parser.parse_args()
+
+    n_hops = args.n_hops
+    seed_questions_path = args.seed_questions
+
+    with open(seed_questions_path, "r") as f:
+        seed_questions = [q.strip() for q in f.readlines()]
+
+    graph = generate_graph(
+        seed_questions=seed_questions,
+        n_hops=n_hops,
+    )
+
+    graph.save_to_db()

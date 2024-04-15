@@ -14,6 +14,8 @@ from sklearn.metrics.pairwise import cosine_distances
 
 from prompt_segments import attentional_policy_definition
 
+import argparse
+
 
 class ClusterableObject(BaseModel):
     id: int
@@ -193,11 +195,11 @@ def _link_to_deduplicated_card(
     )
 
 
-def _embed_cards():
+def _embed_cards(generation_id: int):
     """Embed all ValuesCards."""
     if not db.is_connected():
         db.connect()
-    query = f"""SELECT "id", "title", "policies", "generationId", "createdAt", "updatedAt" FROM "ValuesCard" WHERE "embedding" IS NULL;"""
+    query = f"""SELECT "id", "title", "policies", "generationId", "createdAt", "updatedAt" FROM "ValuesCard" WHERE "embedding" IS NULL AND "generationId" = {generation_id};"""
     cards = db.query_raw(query, model=ValuesCard)
     print("Embedding all values cards...")
     for card in tqdm(cards):
@@ -207,7 +209,7 @@ def _embed_cards():
     db.disconnect()
 
 
-def _get_or_create_deduplication():
+def _get_or_create_deduplication(generation_id: int):
     if not db.is_connected():
         db.connect()
     deduplication = db.deduplication.find_first(
@@ -224,7 +226,7 @@ def _get_or_create_deduplication():
     deduplication = db.deduplication.create(data={"gitCommitHash": "TODO"})  # TODO
 
     # Cluster non-deduplicated cards.
-    query = f"""SELECT id, embedding::real[] FROM "ValuesCard" WHERE embedding IS NOT NULL;"""
+    query = f"""SELECT id, embedding::real[] FROM "ValuesCard" WHERE embedding IS NOT NULL AND "generationId" = {generation_id};"""
     cards = db.query_raw(query, model=ClusterableObject)
     if not cards:
         raise ValueError("No cards to deduplicate.")
@@ -245,7 +247,7 @@ def _get_or_create_deduplication():
     return deduplication
 
 
-def _deduplicate_cards(deduplication: Deduplication) -> None:
+def _deduplicate_cards(deduplication_id: int, generation_id: int) -> None:
     """Deduplicate all non-deduplicated cards for the latest deduplication generation."""
     if not db.is_connected():
         db.connect()
@@ -253,25 +255,26 @@ def _deduplicate_cards(deduplication: Deduplication) -> None:
     # Get all cards that have not been deduplicated yet.
     cards = db.valuescard.find_many(
         where={
+            "generationId": generation_id,
             "ValuesCardToDeduplicatedCard": {
-                "none": {"deduplicationId": deduplication.id}
+                "none": {"deduplicationId": deduplication_id}
             },
         }
     )
 
     # Deduplicate the cards
     for card in tqdm(cards):
-        existing_duplicate = _fetch_similar_deduplicated_card(card, deduplication.id)
+        existing_duplicate = _fetch_similar_deduplicated_card(card, deduplication_id)
         if existing_duplicate:
-            _link_to_deduplicated_card(card.id, existing_duplicate.id, deduplication.id)
+            _link_to_deduplicated_card(card.id, existing_duplicate.id, deduplication_id)
         else:
-            _create_deduplicated_card(card, deduplication.id)
-    print(f"Deduplicated {len(cards)} cards for deduplication {deduplication.id}.")
+            _create_deduplicated_card(card, deduplication_id)
+    print(f"Deduplicated {len(cards)} cards for deduplication {deduplication_id}.")
 
     db.disconnect()
 
 
-def _deduplicate_edges(deduplication: Deduplication) -> None:
+def _deduplicate_edges(deduplication_id: int, generation_id: int) -> None:
     """Deduplicate all edges for the latest deduplication generation."""
     if not db.is_connected():
         db.connect()
@@ -279,9 +282,10 @@ def _deduplicate_edges(deduplication: Deduplication) -> None:
     # Find all edges that are not deduplicated yet.
     edges = db.edge.find_many(
         where={
+            "generationId": generation_id,
             "EdgeToDeduplicatedEdge": {
-                "none": {"DeduplicatedEdge": {"deduplicationId": deduplication.id}}
-            }
+                "none": {"DeduplicatedEdge": {"deduplicationId": deduplication_id}}
+            },
         }
     )
     # Add all contexts to the database for the deduplication.
@@ -291,11 +295,11 @@ def _deduplicate_edges(deduplication: Deduplication) -> None:
             where={
                 "name_deduplicationId": {
                     "name": context,
-                    "deduplicationId": deduplication.id,
+                    "deduplicationId": deduplication_id,
                 }
             },
             data={
-                "create": {"name": context, "deduplicationId": deduplication.id},
+                "create": {"name": context, "deduplicationId": deduplication_id},
                 "update": {},
             },
         )
@@ -305,13 +309,13 @@ def _deduplicate_edges(deduplication: Deduplication) -> None:
         from_deduplicated_card = db.deduplicatedcard.find_first(
             where={
                 "ValuesCardToDeduplicatedCard": {"some": {"valuesCardId": edge.fromId}},
-                "deduplicationId": deduplication.id,
+                "deduplicationId": deduplication_id,
             }
         )
         to_deduplicated_card = db.deduplicatedcard.find_first(
             where={
                 "ValuesCardToDeduplicatedCard": {"some": {"valuesCardId": edge.toId}},
-                "deduplicationId": deduplication.id,
+                "deduplicationId": deduplication_id,
             }
         )
         if not from_deduplicated_card or not to_deduplicated_card:
@@ -340,7 +344,7 @@ def _deduplicate_edges(deduplication: Deduplication) -> None:
                     "toId": to_deduplicated_card.id,
                     "metadata": Json(edge.metadata),
                     "contextName": edge.contextName,
-                    "deduplicationId": deduplication.id,
+                    "deduplicationId": deduplication_id,
                 },
                 "update": {},
             },
@@ -358,13 +362,22 @@ def _deduplicate_edges(deduplication: Deduplication) -> None:
     db.disconnect()
 
 
-def deduplicate():
-    _embed_cards()
+def deduplicate(generation_id: int | None = None):
+    # If no generation_id is provided, use the latest generation.
+    if generation_id is None:
+        db.connect()
+        gen = db.generation.find_first(order={"createdAt": "desc"})
+        if not gen:
+            raise ValueError("No generation found.")
+        generation_id = gen.id
+        db.disconnect()
+
+    _embed_cards(generation_id)
     # Create or continue deduplication run.
-    deduplication = _get_or_create_deduplication()
+    deduplication = _get_or_create_deduplication(generation_id)
     # Deduplicate cards and edges.
-    _deduplicate_cards(deduplication)
-    _deduplicate_edges(deduplication)
+    _deduplicate_cards(deduplication.id, generation_id)
+    _deduplicate_edges(deduplication.id, generation_id)
     # Mark the deduplication as finished.
     db.connect()
     db.deduplication.update(
@@ -375,4 +388,12 @@ def deduplicate():
 
 
 if __name__ == "__main__":
-    deduplicate()
+    """Deduplicate a generation."""
+    parser = argparse.ArgumentParser(description="Deduplicate a graph.")
+    parser.add_argument(
+        "--generation_id",
+        type=int,
+        help="The generation to deduplicate.",
+    )
+    args = parser.parse_args()
+    deduplicate(args.generation_id)
