@@ -5,6 +5,7 @@ from prisma import Prisma
 from prisma import Prisma, Json
 from prisma.enums import ProcessState
 from utils import serialize
+import networkx as nx
 
 
 class ValuesData:
@@ -63,8 +64,6 @@ class MoralGraph:
         return serialize(self)
 
     def to_nx_graph(self):
-        import networkx as nx
-
         G = nx.DiGraph()
 
         for value in self.values:
