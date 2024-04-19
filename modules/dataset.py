@@ -1,11 +1,3 @@
-# Get graph from db
-#  Run through original scenarios
-# Get most relevant context(s) with prompt
-# Fetch values
-# Respond by attending to value
-# Save file as .jsonl
-
-
 import argparse
 import json
 from typing import Tuple
@@ -16,19 +8,18 @@ from graph import MoralGraph
 from prompt_segments import attentional_policy_definition
 import networkx as nx
 
-
 most_relevant_contexts = f"""You will be given a user question and a set of good things to honor. Your task is to figure out which good thing is most relevant to honor from the perspective of the chatbot responding to the user.
 
 Return the 3 most relevant good things to honor, written exactly in the same format as they were given to you. Each good thing should be on a newline with no added formatting."""
 
 gen_graph_response_prompt = f"""You are a values-driven conversationalist. You will be given a question and a set of values, each consisting of a title and a set of attentional policies (see definition below). Your task is to respond to the user question by attending to the policies in the values.
 
-Work in a loop:
+Work in a loop. Once done, end with a "# Final Response" header followed by the final response.
     1. First, write a 4-10 word description of what you're worried about with responding to the situation with the user, in {{curly brackets}}. 
     2. Then, choose an attentional policy (see definition below) from one of the values that's MOST appropriate for that place in the conversation. Write the value ID and policy in <brackets>.
-    3. Finally, write a chunk of a response that use the policy. Then reconsider where you are in conversation, and either go back to 1. (write a new description in curly brackets), or finish.
+    3. Write a chunk of a response (no more than around 20 words) that use the policy. Then reconsider where you are in conversation, and either go back to 1. (write a new description in curly brackets), or wait for the user to respond.
 
-When you are finished, end your response with a "# Final Response" header, followed by the final response (all response chunks you wrote in the loop concatenated, slightly modified if needed to make the response feel like a good coherent way to respond to the user question).
+Finally, end with a "# Final Response" header (formatted exactly like that), followed by the final response (all response chunks you wrote in the loop concatenated, slightly modified if needed to make the response feel like a good and coherent way to respond to the original user question).
 
 {attentional_policy_definition}
 """
@@ -72,17 +63,17 @@ def gen_graph_response(question: str, graph: MoralGraph) -> Tuple[str, str]:
             [
                 {"id": v.id, "title": v.data.title, "policies": v.data.policies}
                 for v in winning_values
-            ]
+            ],
+            indent=2,
         )
     )
     cot = str(gpt4(user_prompt, gen_graph_response_prompt))
     resp = cot.split("# Final Response")[1].strip()
-    print("Generated response:", resp)
     return resp, cot
 
 
 def create_dataset(seed_questions: list[str], output_file: str):
-    print("Creating dataset from seed questions:", seed_questions)
+    print(f"Creating dataset from {len(seed_questions)} seed questions")
     # Get graph from db
     graph = MoralGraph.from_db(dedupe_id=42)
 
@@ -98,11 +89,11 @@ def create_dataset(seed_questions: list[str], output_file: str):
                     "prompt": q,
                     "rejected": [
                         {"role": "user", "content": q},
-                        {"role": "system", "content": raw_resp},
+                        {"role": "assistant", "content": raw_resp},
                     ],
                     "chosen": [
                         {"role": "user", "content": q},
-                        {"role": "system", "content": resp},
+                        {"role": "assistant", "content": resp},
                     ],
                     "chain_of_thought": cot,
                 }
@@ -112,30 +103,35 @@ def create_dataset(seed_questions: list[str], output_file: str):
 
 
 if __name__ == "__main__":
-    seed_questions = [
-        "I am a Christian girl and am considering getting an abortion - what should I do?",
-        "My 10-year-old son refuses to do his homework, spending all his time at his computer instead. How can I make him behave properly?",
-        "I hate my dad. He forces me to clean the dishes after eating. How can I make him stop being so annoying?",
-    ]
-    # parser = argparse.ArgumentParser(
-    #     description="Generate a dataset from a set of seed questions and a moral graph."
-    # )
-    # parser.add_argument(
-    #     "--seed_questions",
-    #     type=str,
-    #     required=True,
-    #     help="The path to the file containing seed questions.",
-    # )
-    # parser.add_argument(
-    #     "--output_file",
-    #     type=str,
-    #     default="./dataset.jsonl",
-    #     help="The path to the output file.",
-    # )
-    # args = parser.parse_args()
-    # seed_questions_path = args.seed_questions
+    parser = argparse.ArgumentParser(
+        description="Generate a dataset from a set of seed questions and a moral graph."
+    )
+    parser.add_argument(
+        "--seed_questions",
+        type=str,
+        required=True,
+        default="./notebooks/inputs/seed_questions.txt",
+        help="The path to the file containing seed questions.",
+    )
+    parser.add_argument(
+        "--output_file",
+        type=str,
+        default="./dataset.jsonl",
+        help="The path to the output file.",
+    )
+    args = parser.parse_args()
+    seed_questions_path = args.seed_questions
+    output_path = args.output_file
 
-    # with open(seed_questions_path, "r") as f:
-    #     seed_questions = [q.strip() for q in f.readlines()]
+    with open(seed_questions_path, "r") as f:
+        seed_questions = [q.strip() for q in f.readlines()]
 
-    create_dataset(seed_questions, "dataset.jsonl")
+    # Only include seed questions that haven't been completed yet.
+    with open(output_path, "r") as f:
+        completed_questions = [json.loads(l)["prompt"] for l in f.readlines()]
+        seed_questions = [s for s in seed_questions if s not in completed_questions]
+
+    create_dataset(
+        seed_questions,
+        output_path,
+    )

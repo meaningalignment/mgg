@@ -6,23 +6,25 @@ client = openai.OpenAI()
 
 
 def gpt4(
-    user_prompt: str,
+    user_prompt: str | None = None,
     system_prompt: str | None = None,
     function: dict | None = None,
     temperature: float = 0.0,
     token_counter: Counter | None = None,
 ) -> str | dict:
     messages = []
-
+    if user_prompt:
+        messages.append({"role": "user", "content": user_prompt})
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
+    if not system_prompt and not user_prompt:
+        raise ValueError(
+            "At least one of user_prompt or system_prompt must be provided"
+        )
 
     params = {
         "model": "gpt-4-turbo",
-        "messages": [
-            *messages,
-            {"role": "user", "content": user_prompt},
-        ],
+        "messages": [*messages],
         "temperature": temperature,
     }
 
