@@ -24,8 +24,6 @@ Finally, end with a "# Final Response" header (formatted exactly like that), fol
 {attentional_policy_definition}
 """
 
-eval_response_prompt = f"""You will be given a question and a set of responses """
-
 
 def gen_graph_response(question: str, graph: MoralGraph) -> Tuple[str, str]:
     print("Generating response for question:", question)
@@ -72,25 +70,6 @@ def gen_graph_response(question: str, graph: MoralGraph) -> Tuple[str, str]:
     cot = str(gpt4(user_prompt, gen_graph_response_prompt))
     resp = cot.split("# Final Response")[1].strip()
     return resp, cot
-
-
-def evaluate_dataset(dataset_file: str):
-    with open(dataset_file, "r") as f:
-        lines = f.readlines()
-
-    for line in lines:
-        data = json.loads(line)
-
-        rejected = data["rejected"]
-        new_rejected = []
-        for r in rejected:
-            prompt = gpt4(r["content"])
-            new_rejected.append(
-                {"role": r["role"], "content": r["content"], "prompt": prompt}
-            )
-        data["rejected"] = new_rejected
-        with open(dataset_file, "a") as f:
-            f.write(json.dumps(data) + "\n")
 
 
 def create_dataset(seed_questions: list[str], output_file: str):
