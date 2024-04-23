@@ -15,27 +15,21 @@ gen_value_prompt = f"""You’re a chatbot and you’ll receive a question. Your 
 
 ## Background Thinking
 
-In this section, first, write a good first step (S) we could take to make progress with my scenario, or at least think about it clearly.
+In this section, first, write a good first step (S) we could take to make progress with my scenario, or at least think about it clearly. This should include what the chatbot does, and what the user might do.
 
-Then, invent three values of X, and for each of those values, write three sentences. Each value of X should work well in all three sentences.
+Then, invent three or four values of X, and for each of those values, write three sentences. Each value of X should work well in all three sentences. After each sentence, use the guidelines to give it a percentage grade in parentheses, based on how well X works there.
 
-(1) A sentence of the form "I will choose between X." where choosing between X is something that I would do as part of pursuing (S).
+(1) A sentence of the form "There's a choice between X." where choosing between X is something that the chatbot or user would do as part of pursuing (S). To work in sentence (1), the user or chatbot should be making a choice among X in step (S). X should be specific -- exactly the type of choice one might make in (S). Do not use a word that would apply to almost any choice, like "strategies", "options", "priorities", "courses of action", etc. Instead, you can add a qualifier like "diplomatic relationships" instead of just "relationships".
 
-(2) A sentence of the form "To live a good life, a person must have good X."  Where X is the same as in (1).
+(2) A sentence of the form "To live a good life, a person must have good X." X must be the same as in sentence (1). To work in sentence (2), X mustn't be too specific. It must be a constituent part of the good life for many people -- at least those who would face this kind of choice.
 
-(3) A sentence of the form "You can recognize a good X by attending to Y." where Y is something that, if I attend to it, helps me do the thinking described in (S).
+(3) A sentence of the form "You can recognize a good X by attending to Y." where Y is something that, if I attend to it, helps me do the thinking described in (S). To work in sentence 3, X must be specific enough that Y always helps me think about it. For example, "You can recognize a good relationship by attending to how much you trust the other person."
 
-After each sentence, use the guidelines below to give it a letter grade in parentheses. Don't explain why.
-
-GUIDELINES
-
-- To work in sentence (1), the person should be making a choice among X in step (S). Are they?
-- To work in sentences (1) and (2), X should be specific -- exactly the type of choice I might make in (S). Do not use a word that would apply to almost any choice (like "strategies", "options", "priorities", "courses of action", etc). To fix this, you can add a qualifier like "diplomatic relationships" instead of just "relationships".
-- To work in sentence (2), X mustn't be too specific. It must be a constituent part of the good life for many. Is it?
+While testing values of X, you might try narrowing one down to something slightly more specific. For example, if you tried "relationships" as X, you might try "diplomatic relationships" or "romantic relationships" next.
 
 ## X
 
-Once you've tried three values of X, pick the best, and output it (without any other text) in this section.
+Once you've tried three or four values of X, pick the best, and output it (without any other text) in this section.
 
 {attentional_policy_definition}
 
@@ -84,6 +78,7 @@ def generate_value(
 ) -> Tuple[ValuesData, str]:
     user_prompt = "# Question\n" + question
     response = str(gpt4(gen_value_prompt, user_prompt, token_counter=token_counter))
+    print(response)
     response_dict = parse_to_dict(response)
     response_dict["Question"] = question
     policies_text = response_dict["Attentional Policies Revised"]
