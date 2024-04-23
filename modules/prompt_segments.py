@@ -10,17 +10,19 @@ meaningful_choice_definition = """# Meaningful Choice Definition
 Meaningful choices are choices which are understood as implicated in one’s character or identity, where options don’t just have instrumental value but can be considered as higher and lower, virtuous and vicious, more and less fulfilling, more and less refined, profound or superficial, noble or base, etc. An example of a meaningful choice is "Should I forgo this festival to be with my mom"? A decision that says something about my character."""
 
 
-attentional_policy_definition = """# Attentional Policies Definition
-Attentional policies are policies for attending to certain things when making a meaningful choices, like responding to the question at hand. When we are faced with a meaningful choice, we often attend to certain things before forming our set of options. This option set formation is itself an expression of our values. For example, at a dinner conversation, I might want to live with a certain kind of playfulness. Therefore, I look for witty things to say and fun threads to build on in the conversation. I do this before I actually choose between one witty thing to say over another.
+attentional_policy_definition = """## Attentional Policies
+
+Put a set of attentional policies that would help with this response, and that are generally good for choosing a good X, here. These attentional policies are policies about what to attend to when choosing a good X. For example, at a dinner conversation, I might want to choose playful interactions. Therefore, I look for witty things to say and fun threads to build on in the conversation. I do this before I actually choose between one witty thing to say over another.
 
 Here are some guidelines for what makes a good set of attentional policies:
 
-- **Each policy centers on something that can be attended to, not a vague concept.** Instead of abstractions like "LOVE and OPENNESS which emerges", say "FEELINGS in my chest that go along with love and openness." Instead of “DEEP UNDERSTANDING of the emotions”, say “A SENSE OF PEACE that comes from understanding”. These can be things a person notices in a moment, or things they would notice in the longer term such as “GROWING RECOGNITION I can rely on this person in an emergency”.
-- **Policies should the meaningful parts of making the relevant kind of choice.** Any choice involves paying attention to various criteria or phenomena to guide your choice among options. Some of these feel meaningful to attend to, because these criteria form part of your sense of the good life. These policies should feel meaningful. Try to say why it’s meaningful to attend to in each policy.
-- **Policies start with a capitalized phrase that's a general kind of thing to attend to** ("MOMENTS", "SENSATIONS", "CHOICES", "PEOPLE", etc), followed by a qualifying phrase that provides more detail.
-- **Policies should not be unnecessarily specific**, so they apply broadly. Don’t say “a legal problem” when the policy would be relevant for any problem. Remove names and irrelevant details. For instance, prefer "strangers" to "customers" when either would work.
-- **But don’t be too general**. Avoid the word "meaningful", or synonyms like "deep". Instead use the qualifying phrase to say where the meaning or depth comes from.
-- **Policies should hold together.** A person guided by one policy in a set should likely be also guided by the rest."""
+- **Policies are formatted in a certain way.** They start with an all-caps plural noun that's a kind of thing someone could to attend to** ("MOMENTS", "SENSATIONS", "PEOPLE", etc), followed by a prepositional phrase that modifies the head noun and provides more detail. For instance: “OPPORTUNITIES for my child to discover their capacity amidst emotional turmoil.” There is no extra formatting or punctuation.
+- **Each policy centers on something precise that can be attended to, not a vague concept.** Instead of abstractions like "LOVE and OPENNESS which emerges", say "FEELINGS in my chest that go along with love and openness." Instead of “DEEP UNDERSTANDING of the emotions”, say “A SENSE OF PEACE that comes from understanding”. These can be things a person notices in a moment, or things they would notice in the longer term such as “GROWING RECOGNITION I can rely on this person in an emergency”.
+- **Policies should focus on meaningful things to attend to.** Most people reading a policy should be able to imagine that it would feel meaningful to attend to that thing.
+- **Don’t be too general.** Avoid the word "meaningful", or synonyms like "deep". Instead use the prepositional phrase to say where the meaning or depth comes from.
+- **The set of policies should hold together.** A person guided by one policy in the set should likely also use the rest.
+
+Write policies separated by newlines, with no additional text or punctuation."""
 
 wiser_value_definition = """# What makes a value wiser than the previous one?
 - There was an impure motive present in the previous value. An impure motive is a motive for acting a certain way that we think guards a value but is really serving a goal. For example, a value about friendship could have impure motives of wanting to be liked, when the really important thing it guards is finding people who are good for us.
@@ -37,7 +39,7 @@ In any choice, you are choosing a good X, where X is a kind of thing. For instan
 
 json_upgrade_example = """{
   input: {
-    choiceType: "Choosing when and how to be there for my child",
+    choiceType: "Good attitudes for caring for my child",
     policies: [
         "MOMENTS where my child needs my support and I can be there",
         "MY CAPACITY to comfort them in times of fear and sorrow",

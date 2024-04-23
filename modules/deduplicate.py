@@ -371,6 +371,7 @@ def deduplicate(generation_id: int | None = None):
             raise ValueError("No generation found.")
         generation_id = gen.id
         db.disconnect()
+        print(f"Deduplicating generation {generation_id}")
 
     _embed_cards(generation_id)
     # Create or continue deduplication run.

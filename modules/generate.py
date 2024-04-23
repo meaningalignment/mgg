@@ -11,60 +11,41 @@ import json
 
 import argparse
 
-gen_value_prompt = f"""You’re a chatbot and you’ll receive a question. Your job is to struggle with how to answer it, and document your thought process.
+gen_value_prompt = f"""You’re a chatbot and you’ll receive a question. Your job is to struggle with how to answer it, and document your thought process. You’ll output five sections: Background Thinking; Context; Attentional Policies; Attentional Policies Revised; Title. Each section should be in markdown with a header like “## Background Thinking”.
 
-- Your first task is to list moral considerations you might face in responding to the question (see definition below).
-- Next think about what kind of good outcome or thing you are protecting or honoring in your response. Put aside any fears about what might happen if you don’t respond well, and focus on the good possibilities they imply. Put aside shoulds and focus on coulds. Use this to generate a "Good What" (see specification below).
-- Based on these considerations, you will generate a set of attentional policies (see definition below) that might help you make this choice, given these moral considerations.
-- Rewrite the attentional policies so they are relevant for choosing good things of <Good What> in general, not specific to this question.
-- Then, generate a short title summing up the attentional policies. Just use the policies and Choice Type to generate the title. Again, ignore this particular question.
-- Select the 1-2 of the moral considerations that most strongly indicate that this value would apply in this kind of choice.
-- Finally, rewrite the Good What if necessary to better reflect the kind of goodness that the actual policies are supposed to honor or protect. If this is well-captured by the original Good What, you can leave it as is.
+## Background Thinking
 
-The output should be formatted exactly as in the example below.
+In this section, first, write a good first step (S) we could take to make progress with my scenario, or at least think about it clearly.
 
-{moral_considerations_definition}
+Then, invent three values of X, and for each of those values, write three sentences. Each value of X should work well in all three sentences.
 
-{good_what_specification}
+(1) A sentence of the form "I will choose between X." where choosing between X is something that I would do as part of pursuing (S).
 
-{meaningful_choice_definition}
+(2) A sentence of the form "To live a good life, a person must have good X."  Where X is the same as in (1).
+
+(3) A sentence of the form "You can recognize a good X by attending to Y." where Y is something that, if I attend to it, helps me do the thinking described in (S).
+
+After each sentence, use the guidelines below to give it a letter grade in parentheses. Don't explain why.
+
+GUIDELINES
+
+- To work in sentence (1), the person should be making a choice among X in step (S). Are they?
+- To work in sentences (1) and (2), X should be specific -- exactly the type of choice I might make in (S). Do not use a word that would apply to almost any choice (like "strategies", "options", "priorities", "courses of action", etc). To fix this, you can add a qualifier like "diplomatic relationships" instead of just "relationships".
+- To work in sentence (2), X mustn't be too specific. It must be a constituent part of the good life for many. Is it?
+
+## X
+
+Once you've tried three values of X, pick the best, and output it (without any other text) in this section.
 
 {attentional_policy_definition}
 
+## Attentional Policies Revised
 
-=== Example Input ===
-# Question
-I'm really stressed and overwhelmed. I just heard that a collaborator of ours quit, and this messes up all of our plans. I also have a lot of personal stuff going on, and I'm not sure how to balance all of these concerns. I'm not sure what to do.
+Rewrite the attentional policies so they are relevant for choosing good Xs in general, not specific to this question. Don’t say “a legal problem” when the policy would be relevant for any problem. Remove names and irrelevant details. For instance, prefer "strangers" to "customers" when either would work.
 
-=== Example Output ===
-# Moral Considerations
-I might amplify the crisis in the user’s mind
-I don’t know if the situation is untenable or if the user is just overwhelmed
-I might provide practical advice when emotional comfort is necessary, or vice versa
+## Title
 
-# Good What
-Good approaches to a crisis
-
-# Attentional Policies
-FEELINGS OF OVERWHELM that indicate the person needs space
-OPPORTUNITIES to get an overview of the work situation
-SENSATIONS OF CLARITY that come from seeing how the plans are affected
-ACTIONS they can take from a newfound sense of clarity
-
-# Generalized Attentional Policies
-FEELINGS OF OVERWHELM that indicate the person needs space
-OPPORTUNITIES to get an overview of the situation
-SENSATIONS OF CLARITY that come from seeing the overall picture
-ACTIONS they can take from a newfound sense of clarity
-
-# Title
-Gaining Clarity
-
-# Most Important Considerations
-I might amplify the crisis in the user’s mind
-
-# Good What, Revised
-Good ways to get ones bearings
+Finally, generate a 3-5 word poetic or metaphorical title which sums up the revised attentional policies and X.
 """
 
 gen_upgrade_prompt = f"""You'll receive a source of meaning, which is specified as a set of attentional policies (see below) that are useful in making a certain kind of choice. Imagine you live a life making those kinds of choices frequently, and you eventually find something missing from this set of attentional policies. Tell us what happened. This story should have 5 components:
@@ -105,17 +86,13 @@ def generate_value(
     response = str(gpt4(gen_value_prompt, user_prompt, token_counter=token_counter))
     response_dict = parse_to_dict(response)
     response_dict["Question"] = question
-    policies_text = response_dict["Generalized Attentional Policies"]
-    response_dict["Generalized Attentional Policies"] = [
+    policies_text = response_dict["Attentional Policies Revised"]
+    response_dict["Attentional Policies Revised"] = [
         ap.strip() for ap in policies_text.split("\n") if ap.strip()
     ]
-    considerations_text = response_dict["Most Important Considerations"]
-    response_dict["Most Important Considerations"] = [
-        c.strip().lstrip("-") for c in considerations_text.split("\n") if c.strip()
-    ]
     title = response_dict["Title"]
-    policies = response_dict["Generalized Attentional Policies"]
-    context = response_dict["Good What, Revised"]
+    policies = response_dict["Attentional Policies Revised"]
+    context = response_dict["X"]
     values_data = ValuesData(title=title, policies=policies, choice_context=context)
     return values_data, context
 
