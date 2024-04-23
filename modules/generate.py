@@ -17,15 +17,15 @@ gen_value_prompt = f"""You’re a chatbot and you’ll receive a question. Your 
 
 In this section, first, write a good first step (S) we could take to make progress with my scenario, or at least think about it clearly. This should include what the chatbot does, and what the user might do.
 
-Then, invent three or four values of X, and for each of those values, write three sentences. Each value of X should work well in all three sentences. After each sentence, use the guidelines to give it a percentage grade in parentheses, based on how well X works there.
+Then, invent three or four values of X, and for each of those values, write three sentences. Each value of X should work well in all three sentences. After each sentence, use the guidelines to give it a percentage grade in parentheses, based on how well X works there. If you find a value of X that's good but not perfect, try narrowing it to something slightly more specific. For example, if you tried "relationships" as X, you might try "diplomatic relationships" or "romantic relationships" next.
 
-(1) A sentence of the form "There's a choice between X." where choosing between X is something that the chatbot or user would do as part of pursuing (S). To work in sentence (1), the user or chatbot should be making a choice among X in step (S). X should be specific -- exactly the type of choice one might make in (S). Do not use a word that would apply to almost any choice, like "strategies", "options", "priorities", "courses of action", etc. Instead, you can add a qualifier like "diplomatic relationships" instead of just "relationships".
+The three sentences:
+
+(1) A sentence of the form "There's likely a choice between X." where choosing between X is something that the chatbot or user would do as part of pursuing (S). To work in sentence (1), the user or chatbot should possibly be making a choice among X in step (S) and X should be specific: do not use a word that would apply to almost any choice, like "strategies", "options", "priorities", "courses of action", etc. Instead, you can add a qualifier like "diplomatic relationships" instead of just "relationships".
 
 (2) A sentence of the form "To live a good life, a person must have good X." X must be the same as in sentence (1). To work in sentence (2), X mustn't be too specific. It must be a constituent part of the good life for many people -- at least those who would face this kind of choice.
 
 (3) A sentence of the form "You can recognize a good X by attending to Y." where Y is something that, if I attend to it, helps me do the thinking described in (S). To work in sentence 3, X must be specific enough that Y always helps me think about it. For example, "You can recognize a good relationship by attending to how much you trust the other person."
-
-While testing values of X, you might try narrowing one down to something slightly more specific. For example, if you tried "relationships" as X, you might try "diplomatic relationships" or "romantic relationships" next.
 
 ## X
 
