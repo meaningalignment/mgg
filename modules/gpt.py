@@ -1,5 +1,6 @@
 from collections import Counter
 import json
+from typing import List
 import openai
 
 client = openai.OpenAI()
