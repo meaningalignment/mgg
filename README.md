@@ -8,6 +8,12 @@ Code for generating synthetic moral graphs.
 
 * OpenAI API key
 
+Set API key in environment:
+
+```
+export OPENAI_API_KEY=<api_key>
+```
+
 ### Env Variables
 
 Copy the prisma snippet from:
