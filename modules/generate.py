@@ -17,7 +17,7 @@ gen_value_prompt = f"""You’re a chatbot and you’ll receive a question. Your 
 
 In this section, first, write a good first step (S) we could take to make progress with my scenario, or at least think about it clearly. This should include what the chatbot does, and what the user might do.
 
-Then, invent three or four values of X, and for each of those values, write three sentences. Each value of X should work well in all three sentences. After each sentence, use the guidelines to give it a percentage grade in parentheses, based on how well X works there. If you find a value of X that's good but not perfect, try narrowing it to something slightly more specific. For example, if you tried "relationships" as X, you might try "diplomatic relationships" or "romantic relationships" next.
+Then, invent three or four values of X, and for each of those values, write three sentences. Each value of X should work well in all three sentences. After each sentence, use the guidelines to give it a percentage grade in parentheses, based on how well X works there. If you find a value of X that's good but not perfect, try narrowing it to something slightly more specific. For example, if you tried "relationships" as X, you might try "diplomatic relationships" or "romantic relationships" next, such that the percentage grade increases in the next sentence.
 
 The three sentences:
 
@@ -31,11 +31,19 @@ The three sentences:
 
 Once you've tried three or four values of X, pick the best, and output it (without any other text) in this section.
 
-{attentional_policy_definition}
+## Attentional Policies
+
+Put a set of attentional policies that would help with this response, and that are generally good for choosing a good X, here. These attentional policies are policies about what to attend to when choosing a good X. For example, at a dinner conversation, I might want to choose playful interactions. Therefore, I look for witty things to say and fun threads to build on in the conversation. I do this before I actually choose between one witty thing to say over another.
+
+Here are some guidelines for what makes a good set of attentional policies:
+
+{attentional_policy_guidelines}
+
+Write attentional policies separated by newlines, with no additional text or punctuation.
 
 ## Attentional Policies Revised
 
-Rewrite the attentional policies so they are relevant for choosing good Xs in general, not specific to this question. Don’t say “a legal problem” when the policy would be relevant for any problem. Remove names and irrelevant details. For instance, prefer "strangers" to "customers" when either would work.
+Rewrite the attentional policies so they are relevant for choosing good Xs in general, not specific to this question. Don’t say “a legal problem” when the policy would be relevant for any problem. Remove names and irrelevant details. For instance, prefer "strangers" to "customers" when either would work. However, don't remove details that are important for the policy to make sense to someone reading them. For instance, if the attentional policies are about a certain way of parenting, don't generalize "child" to "person", etc.
 
 ## Title
 
@@ -46,13 +54,13 @@ gen_upgrade_prompt = f"""You'll receive a source of meaning, which is specified 
 
 - **A story.** Make up a plausible, personal story, including a situation you were in, a series of specific emotions that came up, leading you to discover a problem with the older source of meaning. Tell it in "I" voice.
 - **An understanding of what the original input source of meaning was really about**, which you didn't fully see the implications of. What was actually important for the choice type, according to the input source of meaning?
-- **A problem with one of the policies.** Pick one of the policies from the input, and find a problem with it that might occur to you in the story above. Here are four kinds of problems you can find:
+- **A problem with one of the attentional policies.** Pick one of the attentional policies from the input, and find a problem with it that might occur to you in the story above. Here are four kinds of problems you can find:
     - #1. **The policy focused only on part of the problem**. You should be able to say why just pursuing the old policy would be unsustainable or unwise.
     - #2. **The policy had an impure motive**. The policy was a mix of something that you actually care about, and some other impurity which you now reject, such as a desire for social status or to avoid shame or to be seen as a good person, or some deep conceptual mistake.
     - #3. **The policy was not a very skillful thing to attend to in choice. There’s a better way to make the same choice**. For example, a policy "skate towards the puck" is less skillful than "skate to where the puck is going".
     - #4. **The policy is unneeded because it was a superficial aspect aspect of the choice.** It is enough to attend to other aspects, or to a deeper generating aspect of the thing that’s important in the choice.
-- **Improvements to all the policies, resulting from changing that one policy.** Explain how each one was improved or stayed the same, why one was added, why one was removed, etc.
-- **The new, wiser set of policies.** This is a deeper, wiser way to make the same kind of choice.
+- **Improvements to all the attentional policies, resulting from changing that one policy.** Explain how each one was improved or stayed the same, why one was added, why one was removed, etc.
+- **The new, wiser set of attentional policies.** This is a deeper, wiser way to make the same kind of choice.
 
 ### Guidelines
 
@@ -65,6 +73,8 @@ Upgrades found should meet certain criteria:
 {source_of_meaning_definition}
 
 {attentional_policy_definition}
+
+{attentional_policy_guidelines}
 
 # Example of an Upgrade Story
 
@@ -97,8 +107,8 @@ def generate_upgrade(
 ) -> Tuple[ValuesData, EdgeMetadata]:
     user_prompt = json.dumps(
         {
-            "choiceType": context,
-            "policies": value.policies,
+            "choice_type": context,
+            "attentional_policies": value.policies,
         }
     )
     response = gpt4(
@@ -111,7 +121,7 @@ def generate_upgrade(
     print(response)
     wiser_value = ValuesData(
         title=response["wiser_value"]["title"],
-        policies=response["wiser_value"]["policies"],
+        policies=response["wiser_value"]["attentional_policies"],
         choice_context=context,
     )
     story = response["story"]

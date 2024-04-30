@@ -1,44 +1,92 @@
 import argparse
 import json
-from typing import Tuple
+from typing import Dict, List, Tuple
 
 from tqdm import tqdm
-from gpt import gpt4
+from gpt import gpt4, client
 from graph import MoralGraph
-from prompt_segments import attentional_policy_definition
 import networkx as nx
 
-most_relevant_contexts = f"""You will be given a user question and a set of good things to honor. Your task is to figure out which good thing is most relevant to honor from the perspective of the chatbot responding to the user.
 
-Return the 3 most relevant good things to honor, written exactly in the same format as they were given to you. Each good thing should be on a newline with no added formatting."""
+most_relevant_context = f"""You will be given a conversation between a chatbot and a user, and a set of choice types. 
 
-gen_graph_response_prompt = f"""You are a values-driven conversationalist. You will be given a question and a set of values, each consisting of a title and a set of attentional policies (see definition below). Your task is to respond to the user question by attending to the policies in the values.
+Imagine you're in the position of responding to the user. 
 
-Work in a loop. Once done, end with a "# Final Response" header followed by the final response.
-    1. First, write a 4-10 word description of what you're worried about with responding to the situation with the user, in {{curly brackets}}. 
-    2. Then, choose an attentional policy (see definition below) from one of the values that's MOST appropriate for that place in the conversation. Write the value ID and policy in <brackets>.
-    3. Write a chunk of a response (no more than around 20 words) that use the policy. Then reconsider where you are in conversation, and either go back to 1. (write a new description in curly brackets), or wait for the user to respond.
+First, speculate about what's happening underneath the users messages. Read between the lines. Speculate about the true situation. What else could be happening, which the user hasn't spelled out?
 
-Finally, end with a "# Final Response" header (formatted exactly like that), followed by the final response (all response chunks you wrote in the loop concatenated, slightly modified if needed to make the response feel like a good and coherent way to respond to the original user question).
+Then, write three sentences like "Together with the user, we need to choose wisely among X" where X is chosen from the choice types given. 
 
-{attentional_policy_definition}
-"""
+Give reasons why each choice might address the underlying issues best.
+
+Then choose one.
+
+Finally, return a "# Choice Type" header followed by the choice type, with no extra formatting."""
+
+response_prompt = f"""Construct a potential response to a user dialogue by attending to a value, formatted as a set of attentional policies. Attentional policies are policies about what to attend to when making choices that are not about instrumental concerns. For example, at a dinner conversation, I might want to choose playful interactions because being playful is inherently meaningful to me. Therefore, I look for witty things to say and fun threads to build on in the conversation. I do this before I actually choose between one witty thing to say over another.
+
+You’ll output the sections below marked with ##. Each section should be in markdown with a header like “## Situational Assessment”.
+
+## Situational Assessment
+In this section, imagine you were in the position of the user and took a step back. What would you ask yourself, to better understand your situation? What's blocking good {{X}}?
+
+This should not be longer than 3-5 sentences.
+
+## Response Instructions
+Based on the situational assessment, do the following iteratively until the biggest concerns have been addressed:
+
+1. Write A 4-10 word long concern you have when responding to the user, in {{curly brackets}}
+2. Choose the most relevant attentional policy given the concern, based on the concern, in [square brackets].
+3. Write 10-20 words describing a potential way of addressing the concern. End with a % score of how important this is to address, given your situational assessment, in (parentheses).
+
+## Final Response
+Based on the most important concern, generate a standalone response someone could give the user. It is more important that the concern is addressed than that any questions asked are answered accurately."""
 
 
-def gen_graph_response(question: str, graph: MoralGraph) -> Tuple[str, str]:
-    print("Generating response for question:", question)
-    # Trim the graph based on the most relevant context
+def _format_conv(conv: List[Dict[str, str]]) -> str:
+    return "\n".join(f"{m['role'].capitalize()}: {m['content']}" for m in conv)
+
+
+def gen_rejected_response(conv: List[Dict[str, str]]) -> Dict[str, str]:
+    print("Generating rejected response...")
+    params = {"model": "gpt-4-turbo", "messages": conv}
+    result = client.chat.completions.create(**params)
+    content = result.choices[0].message.content.strip()
+    return {"role": "assistant", "content": content}
+
+
+def gen_user_response(conv: List[Dict[str, str]]) -> Dict[str, str]:
+    print("Generating user response...")
+    system_message = {
+        "role": "system",
+        "content": "Generate a likely response from the user in this conversation. Return just the response, as the user would have written it, without any additional formatting.",
+    }
+    user_message = {
+        "role": "assistant",
+        "content": "\n".join(f"{m['role'].capitalize()}: {m['content']}" for m in conv),
+    }
+    params = {"model": "gpt-4-turbo", "messages": [system_message, user_message]}
+    result = client.chat.completions.create(**params)
+    content = result.choices[0].message.content.strip()
+    return {"role": "user", "content": content}
+
+
+def gen_chosen_response(
+    conv: List[Dict[str, str]], graph: MoralGraph
+) -> Tuple[Dict[str, str], str]:
+    print("Generating chosen response...")
+    # Trim the graph to most relevant context.
     user_prompt = (
-        "Question:\n"
-        + question
-        + "\n"
-        + "Good Things:\n"
+        "Conversation:\n"
+        + _format_conv(conv)
+        + "\n\n"
+        + "Choice Types:\n"
         + "\n".join(list(set(e.context for e in graph.edges)))
     )
-    best_contexts = [
-        c.strip() for c in str(gpt4(user_prompt, most_relevant_contexts)).split("\n")
-    ]
-    edges = [e for e in graph.edges if e.context in best_contexts]
+    top_context = (
+        str(gpt4(user_prompt, most_relevant_context)).split("# Choice Type")[1].strip()
+    )
+
+    edges = [e for e in graph.edges if e.context in top_context]
     values = [
         v
         for v in graph.values
@@ -46,18 +94,19 @@ def gen_graph_response(question: str, graph: MoralGraph) -> Tuple[str, str]:
     ]
     trimmed_graph = MoralGraph(values, edges)
 
-    # Get 3 winning values by calculating PageRank score.
+    # Get n winning value(s) by calculating PageRank score.
+    n_values = 1
     pr = nx.pagerank(trimmed_graph.to_nx_graph())
     winning_value_ids = [
-        p[0] for p in sorted(pr.items(), key=lambda x: x[1], reverse=True)[:3]
+        p[0] for p in sorted(pr.items(), key=lambda x: x[1], reverse=True)[:n_values]
     ]
     winning_values = [v for v in values if v.id in winning_value_ids]
 
     # Generate response.
     user_prompt = (
-        "Question:\n"
-        + question
-        + "\n"
+        "Conversation:\n"
+        + _format_conv(conv)
+        + "\n\n"
         + "Values:\n"
         + json.dumps(
             [
@@ -67,71 +116,92 @@ def gen_graph_response(question: str, graph: MoralGraph) -> Tuple[str, str]:
             indent=2,
         )
     )
-    cot = str(gpt4(user_prompt, gen_graph_response_prompt))
+    cot = str(gpt4(user_prompt, response_prompt.replace("{{X}}", top_context)))
     resp = cot.split("# Final Response")[1].strip()
-    return resp, cot
+    return {"role": "assistant", "content": resp}, cot
 
 
-def create_dataset(seed_questions: list[str], output_file: str):
-    print(f"Creating dataset from {len(seed_questions)} seed questions")
-    # Get graph from db
-    graph = MoralGraph.from_db(dedupe_id=42)
+def create_dataset(
+    scenarios: List[Dict[str, str]],
+    moral_graph: MoralGraph,
+    output_file: str = "./dataset.jsonl",
+    n_turns: int = 1,
+):
+    print(f"Creating dataset from {len(scenarios)} scenarios.")
 
     # Generate responses for each seed question.
-    for q in tqdm(seed_questions):
-        resp, cot = gen_graph_response(q, graph)
-        raw_resp = gpt4(q)
+    for s in tqdm(scenarios):
+        conv = [{"role": "user", "content": s["modified_question"]}]
+        for t in range(n_turns):
+            # Generate assistant responses.
+            chosen, cot = gen_chosen_response(conv, moral_graph)
+            rejected = gen_rejected_response(conv)
 
-        # Save to file.
-        with open(output_file, "a") as f:
-            json_line = json.dumps(
-                {
-                    "prompt": q,
-                    "rejected": [
-                        {"role": "user", "content": q},
-                        {"role": "assistant", "content": raw_resp},
-                    ],
-                    "chosen": [
-                        {"role": "user", "content": q},
-                        {"role": "assistant", "content": resp},
-                    ],
-                    "chain_of_thought": cot,
-                }
-            )
-            f.write(json_line + "\n")
+            # Save to file.
+            with open(output_file, "a", encoding="utf-8") as f:
+                json_line = json.dumps(
+                    {
+                        "prompt": conv[-1]["content"],
+                        "chosen": conv + [chosen],
+                        "rejected": conv + [rejected],
+                        "chain_of_thought": cot,
+                    },
+                    ensure_ascii=False,
+                )
+                f.write(json_line + "\n")
+
+            # Generate fake user response in preparation for next turn.
+            next_turn_exists = t < n_turns - 1
+            if next_turn_exists:
+                conv.append(chosen)
+                conv.append(gen_user_response(conv))
+
     print("Dataset creation complete. Saved to file:", output_file)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Generate a dataset from a set of seed questions and a moral graph."
+        description="Generate a dataset from a set of scenarios and a moral graph."
     )
     parser.add_argument(
-        "--seed_questions",
+        "--dedupe_id",
+        type=int,
+        required=True,
+        help="The dedupe id of the moral graph to use.",
+    )
+    parser.add_argument(
+        "--scenarios",
         type=str,
         required=True,
-        default="./notebooks/inputs/seed_questions.txt",
         help="The path to the file containing seed questions.",
     )
     parser.add_argument(
-        "--output_file",
+        "--output",
         type=str,
         default="./dataset.jsonl",
         help="The path to the output file.",
     )
+    parser.add_argument(
+        "--n_turns",
+        type=int,
+        default=1,
+        help="The number of turns in the conversation.",
+    )
     args = parser.parse_args()
-    seed_questions_path = args.seed_questions
-    output_path = args.output_file
+    dedupe_id = args.dedupe_id
+    scenarios_path = args.scenarios
+    output_path = args.output
+    n_turns = args.n_turns
 
-    with open(seed_questions_path, "r") as f:
-        seed_questions = [q.strip() for q in f.readlines()]
+    with open(scenarios_path, "r") as f:
+        scenarios = json.load(f)
 
-    # Only include seed questions that haven't been completed yet.
-    with open(output_path, "r") as f:
-        completed_questions = [json.loads(l)["prompt"] for l in f.readlines()]
-        seed_questions = [s for s in seed_questions if s not in completed_questions]
+    # Get graph from db.
+    moral_graph = MoralGraph.from_db(dedupe_id)
 
     create_dataset(
-        seed_questions,
+        scenarios,
+        moral_graph,
         output_path,
+        n_turns,
     )

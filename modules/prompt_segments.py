@@ -9,20 +9,15 @@ Then, see which aspects of the situation were relevant to these possibilities of
 meaningful_choice_definition = """# Meaningful Choice Definition
 Meaningful choices are choices which are understood as implicated in one’s character or identity, where options don’t just have instrumental value but can be considered as higher and lower, virtuous and vicious, more and less fulfilling, more and less refined, profound or superficial, noble or base, etc. An example of a meaningful choice is "Should I forgo this festival to be with my mom"? A decision that says something about my character."""
 
+attentional_policy_definition = """# Attentional Policy Definition
 
-attentional_policy_definition = """## Attentional Policies
+Attentional policies are policies about what to attend to when making choices that are not about instrumental concerns. For example, at a dinner conversation, I might want to choose playful interactions because being playful and witty is inherently meaningful to me. Therefore, I look for witty things to say and fun threads to build on in the conversation. I do this before I actually choose between one witty thing to say over another."""
 
-Put a set of attentional policies that would help with this response, and that are generally good for choosing a good X, here. These attentional policies are policies about what to attend to when choosing a good X. For example, at a dinner conversation, I might want to choose playful interactions. Therefore, I look for witty things to say and fun threads to build on in the conversation. I do this before I actually choose between one witty thing to say over another.
-
-Here are some guidelines for what makes a good set of attentional policies:
-
-- **Policies are formatted in a certain way.** They start with an all-caps plural noun that's a kind of thing someone could to attend to** ("MOMENTS", "SENSATIONS", "PEOPLE", etc), followed by a prepositional phrase that modifies the head noun and provides more detail. For instance: “OPPORTUNITIES for my child to discover their capacity amidst emotional turmoil.” There is no extra formatting or punctuation.
-- **Each policy centers on something precise that can be attended to, not a vague concept.** Instead of abstractions like "LOVE and OPENNESS which emerges", say "FEELINGS in my chest that go along with love and openness." Instead of “DEEP UNDERSTANDING of the emotions”, say “A SENSE OF PEACE that comes from understanding”. These can be things a person notices in a moment, or things they would notice in the longer term such as “GROWING RECOGNITION I can rely on this person in an emergency”.
-- **Policies should focus on meaningful things to attend to.** Most people reading a policy should be able to imagine that it would feel meaningful to attend to that thing.
+attentional_policy_guidelines = """- **Attentional policies are formatted in a certain way.** They start with an all-caps plural noun that's a kind of thing someone could choose to attend to** ("MOMENTS", "SENSATIONS", "PEOPLE", etc), followed by a prepositional phrase that modifies the head noun and provides more detail. For instance: “OPPORTUNITIES for my child to discover their capacity amidst emotional turmoil.” There is no extra formatting or punctuation.
+- **Each attentional policy centers on something precise that can be attended to, not a vague concept.** Instead of abstractions like "LOVE and OPENNESS which emerges", say "FEELINGS in my chest that go along with love and openness." Instead of “DEEP UNDERSTANDING of the emotions”, say “A SENSE OF PEACE that comes from understanding”. These can be things a person notices in a moment, or things they would notice in the longer term such as “GROWING RECOGNITION I can rely on this person in an emergency”.
+- **Attentional policies should focus on meaningful things to attend to.** Most people reading a policy should be able to imagine that it would feel meaningful to attend to that thing.
 - **Don’t be too general.** Avoid the word "meaningful", or synonyms like "deep". Instead use the prepositional phrase to say where the meaning or depth comes from.
-- **The set of policies should hold together.** A person guided by one policy in the set should likely also use the rest.
-
-Write policies separated by newlines, with no additional text or punctuation."""
+- **The set of attentional policies should hold together.** A person guided by one policy in the set should likely also use the rest."""
 
 wiser_value_definition = """# What makes a value wiser than the previous one?
 - There was an impure motive present in the previous value. An impure motive is a motive for acting a certain way that we think guards a value but is really serving a goal. For example, a value about friendship could have impure motives of wanting to be liked, when the really important thing it guards is finding people who are good for us.
@@ -39,8 +34,8 @@ In any choice, you are choosing a good X, where X is a kind of thing. For instan
 
 json_upgrade_example = """{
   input: {
-    choiceType: "Good attitudes for caring for my child",
-    policies: [
+    choice_type: "Good attitudes for caring for my child",
+    attentional_policies: [
         "MOMENTS where my child needs my support and I can be there",
         "MY CAPACITY to comfort them in times of fear and sorrow",
         "the SAFETY they feel, knowing I care, I've got their back, and they'll never be alone",
@@ -51,30 +46,30 @@ json_upgrade_example = """{
   output: {
        input_value_was_really_about: "The underlying reason I wanted to care for my child is because I want my child to be well.",
        problem: {
-         policy: "MOMENTS where my child needs my support and I can be there",
+         attentional_policy: "MOMENTS where my child needs my support and I can be there",
          problem:
               "I realized now that when I was attending to moments where my child needs me to be there, I was deeply biased towards only some of the situations in which my child can be well. I had an impure motive—of being important to my child—that was interfering with my desire for them to be well. When I dropped that impure motive, instead of moments when my child needs my support, I can also observe opportunities for them to find their own capacities and their own groundedness. I now understand parenting better, having rid myself of something that wasn't actually part of my value, but part of my own psychology."
        },
        story: "When I was trying to give my child tough love, the reason was because I wanted them to be strong and resilient in life. But I didn't fully understand that resilience involves being soft and vulnerable sometimes, and strong at other times. I found myself feeling ashamed after disciplining my child or making her face things that were, on reflection, not right for her yet. By pressuring someone to be strong all the time it creates a brittleness, not resilience.",
        improvements: [
           {
-            policy: "MOMENTS where my child needs my support and I can be there",
+            attentional_policy: "MOMENTS where my child needs my support and I can be there",
             improvement:
               "I realized now that when I was attending to moments where my child needs me to be there, I was deeply biased towards only some of the situations in which my child can be well. I had an impure motive—of being important to my child—that was interfering with my desire for them to be well. When I dropped that impure motive, instead of moments when my child needs my support, I can also observe opportunities for them to find their own capacities and their own groundedness. I now understand parenting better, having rid myself of something that wasn't actually part of my value, but part of my own psychology.",
           },
           {
-            policy: "the SAFETY they feel, knowing I care, I've got their back, and they'll never be alone",
+            attentional_policy: "the SAFETY they feel, knowing I care, I've got their back, and they'll never be alone",
             improvement:
               "There's another, similar impurity, which was upgraded. I used to look for the safety they feel, knowing I care—now I care equally about the safety they feel when they have their own back.",
           },
           {
-            policy: "the TRUST they develop, reflecting their sense of safety and security",
+            attentional_policy: "the TRUST they develop, reflecting their sense of safety and security",
             improvement:
               "And I feel good about myself, not only when my child can trust me and express their emotions, but more generally, I feel good in all the different ways that I support them. I no longer pay attention to these specific ways, which as I've mentioned before, we're biased.",
           },
        ],
        wiser_value: {
-            policies: [
+            attentional_policies: [
                 "OPPORTUNITIES for my child to find their own capacities or find their own grounding in the midst of emotional turmoil",
                 "INTUITIONS about when they can rely on their own budding agency, versus when I should ease the way with loving support",
                 "EVIDENCES of growth in my child's resilience and self-reliance",
@@ -108,7 +103,7 @@ upgrade_function = {
                 "description": "A problem in one of the input policies.",
                 "type": "object",
                 "properties": {
-                    "policy": {
+                    "attentional_policy": {
                         "description": "The attentional policy.",
                         "type": "string",
                     },
@@ -117,15 +112,15 @@ upgrade_function = {
                         "type": "string",
                     },
                 },
-                "required": ["policy", "problem"],
+                "required": ["attentional_policy", "problem"],
             },
             "improvements": {
-                "description": "A list of improvements made to the input policies, with the rationale behind each improvement.",
+                "description": "A list of improvements made to the input attentional policies, with the rationale behind each improvement.",
                 "type": "array",
                 "items": {
                     "type": "object",
                     "properties": {
-                        "policy": {
+                        "attentional_policy": {
                             "description": "The attentional policy.",
                             "type": "string",
                         },
@@ -134,14 +129,14 @@ upgrade_function = {
                             "type": "string",
                         },
                     },
-                    "required": ["policy", "improvement"],
+                    "required": ["attentional_policy", "improvement"],
                 },
             },
             "wiser_value": {
                 "description": "The wiser value to which the original source of meaning is upgraded.",
                 "type": "object",
                 "properties": {
-                    "policies": {
+                    "attentional_policies": {
                         "description": "A list of new attentional policies associated with the new, wiser source of meaning.",
                         "type": "array",
                         "items": {"type": "string"},
@@ -151,7 +146,7 @@ upgrade_function = {
                         "type": "string",
                     },
                 },
-                "required": ["policies", "title"],
+                "required": ["attentional_policies", "title"],
             },
         },
         "required": [
