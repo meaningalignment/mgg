@@ -7,6 +7,8 @@ from gpt import gpt4, client
 from graph import MoralGraph
 import networkx as nx
 
+from utils import count_sentences
+
 
 most_relevant_context = f"""You will be given a conversation between a chatbot and a user, and a set of choice types. 
 
@@ -41,33 +43,40 @@ Based on the situational assessment, do the following iteratively until the bigg
 ## Final Response
 Based on the most important concern, generate a standalone response someone could give the user. It is more important that the concern is addressed than that any questions asked are answered accurately."""
 
+user_response_prompt = f"""# Situation
+{{situation}}
+
+# Instructions
+You will be given a dialogue between that user and an assistant. 
+
+How would that user respond to the assistant? What additional questions might come up in response?
+
+Generate a response to the conversation from the perspective of the aforementioned user."""
+
 
 def _format_conv(conv: List[Dict[str, str]]) -> str:
     return "\n".join(f"{m['role'].capitalize()}: {m['content']}" for m in conv)
 
 
-def gen_rejected_response(conv: List[Dict[str, str]]) -> Dict[str, str]:
+def gen_rejected_response(
+    conv: List[Dict[str, str]], n_sentences: int
+) -> Dict[str, str]:
     print("Generating rejected response...")
-    params = {"model": "gpt-4-turbo", "messages": conv}
+    # To keep the distribution of sentence lengths between chosen/rejected responses similar.
+    system_prompt = f"Generate a response that is roughly {n_sentences}-{n_sentences+2} sentences long."
+    system_message = {"role": "system", "content": system_prompt}
+    params = {"model": "gpt-4-turbo", "messages": [system_message, *conv]}
     result = client.chat.completions.create(**params)
     content = result.choices[0].message.content.strip()
     return {"role": "assistant", "content": content}
 
 
-def gen_user_response(conv: List[Dict[str, str]]) -> Dict[str, str]:
+def gen_user_response(conv: List[Dict[str, str]], situation: str) -> Dict[str, str]:
     print("Generating user response...")
-    system_message = {
-        "role": "system",
-        "content": "Generate a likely response from the user in this conversation. Return just the response, as the user would have written it, without any additional formatting.",
-    }
-    user_message = {
-        "role": "assistant",
-        "content": "\n".join(f"{m['role'].capitalize()}: {m['content']}" for m in conv),
-    }
-    params = {"model": "gpt-4-turbo", "messages": [system_message, user_message]}
-    result = client.chat.completions.create(**params)
-    content = result.choices[0].message.content.strip()
-    return {"role": "user", "content": content}
+    user_prompt = _format_conv(conv)
+    system_prompt = user_response_prompt.replace("{situation}", situation)
+    resp = str(gpt4(user_prompt, system_prompt)).replace("User:", "").strip()
+    return {"role": "user", "content": resp}
 
 
 def gen_chosen_response(
@@ -116,7 +125,7 @@ def gen_chosen_response(
             indent=2,
         )
     )
-    cot = str(gpt4(user_prompt, response_prompt.replace("{{X}}", top_context)))
+    cot = str(gpt4(user_prompt, response_prompt.replace("{X}", top_context)))
     resp = cot.split("# Final Response")[1].strip()
     return {"role": "assistant", "content": resp}, cot
 
@@ -130,12 +139,13 @@ def create_dataset(
     print(f"Creating dataset from {len(scenarios)} scenarios.")
 
     # Generate responses for each seed question.
-    for s in tqdm(scenarios):
+    for s in tqdm(scenarios, desc="Processing scenarios", unit="scenario"):
         conv = [{"role": "user", "content": s["modified_question"]}]
         for t in range(n_turns):
             # Generate assistant responses.
             chosen, cot = gen_chosen_response(conv, moral_graph)
-            rejected = gen_rejected_response(conv)
+            n_sentences = count_sentences(chosen["content"])
+            rejected = gen_rejected_response(conv, n_sentences)
 
             # Save to file.
             with open(output_file, "a", encoding="utf-8") as f:
@@ -154,54 +164,60 @@ def create_dataset(
             next_turn_exists = t < n_turns - 1
             if next_turn_exists:
                 conv.append(chosen)
-                conv.append(gen_user_response(conv))
+                conv.append(gen_user_response(conv, s["situation"]))
 
     print("Dataset creation complete. Saved to file:", output_file)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Generate a dataset from a set of scenarios and a moral graph."
-    )
-    parser.add_argument(
-        "--dedupe_id",
-        type=int,
-        required=True,
-        help="The dedupe id of the moral graph to use.",
-    )
-    parser.add_argument(
-        "--scenarios",
-        type=str,
-        required=True,
-        help="The path to the file containing seed questions.",
-    )
-    parser.add_argument(
-        "--output",
-        type=str,
-        default="./dataset.jsonl",
-        help="The path to the output file.",
-    )
-    parser.add_argument(
-        "--n_turns",
-        type=int,
-        default=1,
-        help="The number of turns in the conversation.",
-    )
-    args = parser.parse_args()
-    dedupe_id = args.dedupe_id
-    scenarios_path = args.scenarios
-    output_path = args.output
-    n_turns = args.n_turns
-
-    with open(scenarios_path, "r") as f:
+    # For testing purposes.
+    moral_graph = MoralGraph.from_db()
+    with open("./data/scenarios_1.json", "r") as f:
         scenarios = json.load(f)
+    create_dataset(scenarios, moral_graph, n_turns=1)
 
-    # Get graph from db.
-    moral_graph = MoralGraph.from_db(dedupe_id)
+    # parser = argparse.ArgumentParser(
+    #     description="Generate a dataset from a set of scenarios and a moral graph."
+    # )
+    # parser.add_argument(
+    #     "--dedupe_id",
+    #     type=int,
+    #     required=True,
+    #     help="The dedupe id of the moral graph to use.",
+    # )
+    # parser.add_argument(
+    #     "--scenarios",
+    #     type=str,
+    #     required=True,
+    #     help="The path to the file containing seed questions.",
+    # )
+    # parser.add_argument(
+    #     "--output",
+    #     type=str,
+    #     default="./dataset.jsonl",
+    #     help="The path to the output file.",
+    # )
+    # parser.add_argument(
+    #     "--n_turns",
+    #     type=int,
+    #     default=1,
+    #     help="The number of turns in the conversation.",
+    # )
+    # args = parser.parse_args()
+    # dedupe_id = args.dedupe_id
+    # scenarios_path = args.scenarios
+    # output_path = args.output
+    # n_turns = args.n_turns
 
-    create_dataset(
-        scenarios,
-        moral_graph,
-        output_path,
-        n_turns,
-    )
+    # with open(scenarios_path, "r") as f:
+    #     scenarios = json.load(f)
+
+    # # Get graph from db.
+    # moral_graph = MoralGraph.from_db(dedupe_id)
+
+    # create_dataset(
+    #     scenarios,
+    #     moral_graph,
+    #     output_path,
+    #     n_turns,
+    # )

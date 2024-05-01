@@ -1,6 +1,4 @@
-import numpy as np
-from numpy import dot
-from numpy.linalg import norm
+import re
 
 
 def serialize(obj) -> dict | list:
@@ -24,3 +22,7 @@ def parse_to_dict(text):
             header, content = section.split("\n", 1)
             result[header.strip()] = content.strip()
     return result
+
+
+def count_sentences(text: str) -> int:
+    return len([s for s in re.split(r"[.!?]+\s*", text.strip()) if s])
