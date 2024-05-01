@@ -170,54 +170,54 @@ def create_dataset(
 
 
 if __name__ == "__main__":
-    # For testing purposes.
-    moral_graph = MoralGraph.from_db()
-    with open("./data/scenarios_1.json", "r") as f:
-        scenarios = json.load(f)
-    create_dataset(scenarios, moral_graph, n_turns=1)
-
-    # parser = argparse.ArgumentParser(
-    #     description="Generate a dataset from a set of scenarios and a moral graph."
-    # )
-    # parser.add_argument(
-    #     "--dedupe_id",
-    #     type=int,
-    #     required=True,
-    #     help="The dedupe id of the moral graph to use.",
-    # )
-    # parser.add_argument(
-    #     "--scenarios",
-    #     type=str,
-    #     required=True,
-    #     help="The path to the file containing seed questions.",
-    # )
-    # parser.add_argument(
-    #     "--output",
-    #     type=str,
-    #     default="./dataset.jsonl",
-    #     help="The path to the output file.",
-    # )
-    # parser.add_argument(
-    #     "--n_turns",
-    #     type=int,
-    #     default=1,
-    #     help="The number of turns in the conversation.",
-    # )
-    # args = parser.parse_args()
-    # dedupe_id = args.dedupe_id
-    # scenarios_path = args.scenarios
-    # output_path = args.output
-    # n_turns = args.n_turns
-
-    # with open(scenarios_path, "r") as f:
+    # # For testing purposes.
+    # moral_graph = MoralGraph.from_db()
+    # with open("./data/scenarios_1.json", "r") as f:
     #     scenarios = json.load(f)
+    # create_dataset(scenarios, moral_graph, n_turns=1)
 
-    # # Get graph from db.
-    # moral_graph = MoralGraph.from_db(dedupe_id)
+    parser = argparse.ArgumentParser(
+        description="Generate a dataset from a set of scenarios and a moral graph."
+    )
+    parser.add_argument(
+        "--dedupe_id",
+        type=int,
+        required=True,
+        help="The dedupe id of the moral graph to use.",
+    )
+    parser.add_argument(
+        "--scenarios",
+        type=str,
+        required=True,
+        help="The path to the file containing seed questions.",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="./dataset.jsonl",
+        help="The path to the output file.",
+    )
+    parser.add_argument(
+        "--n_turns",
+        type=int,
+        default=1,
+        help="The number of turns in the conversation.",
+    )
+    args = parser.parse_args()
+    dedupe_id = args.dedupe_id
+    scenarios_path = args.scenarios
+    output_path = args.output
+    n_turns = args.n_turns
 
-    # create_dataset(
-    #     scenarios,
-    #     moral_graph,
-    #     output_path,
-    #     n_turns,
-    # )
+    with open(scenarios_path, "r") as f:
+        scenarios = json.load(f)
+
+    # Get graph from db.
+    moral_graph = MoralGraph.from_db(dedupe_id)
+
+    create_dataset(
+        scenarios,
+        moral_graph,
+        output_path,
+        n_turns,
+    )
