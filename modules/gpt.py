@@ -14,10 +14,10 @@ def gpt4(
     token_counter: Counter | None = None,
 ) -> str | dict:
     messages = []
-    if user_prompt:
-        messages.append({"role": "user", "content": user_prompt})
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
+    if user_prompt:
+        messages.append({"role": "user", "content": user_prompt})
     if not system_prompt and not user_prompt:
         raise ValueError(
             "At least one of user_prompt or system_prompt must be provided"
