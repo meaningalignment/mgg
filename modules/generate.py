@@ -33,17 +33,43 @@ Once you've tried three or four values of X, pick the best, and output it (witho
 
 ## Attentional Policies
 
-Put a set of attentional policies that would help with this response, and that are generally good for choosing a good X, here. These attentional policies are policies about what to attend to when choosing a good X. For example, at a dinner conversation, I might want to choose playful interactions. Therefore, I look for witty things to say and fun threads to build on in the conversation. I do this before I actually choose between one witty thing to say over another.
+Put a set of attentional policies that would help with this response, and that are generally good for choosing a good X, here. These attentional policies are policies about what to attend to when choosing a good X.
 
-Here are some guidelines for what makes a good set of attentional policies:
+First, list 12 attentional policies might help choose a good X.
 
-{attentional_policy_guidelines}
+After each, write an (I) or an (M):
+* Write (I) if the policy is instrumental. If attending to this leads to good outcomes for the person, but the attention itself may not be part of the good life as they see it.
+* Write (M) if this policy has intrinsic value and feels meaningful to attend to, not just useful. If attending to this is itself part of how the person wants to live. And if most people reading this policy would be able to imagine it could feel meaningful to attend this way.
 
-Write attentional policies separated by newlines, with no additional text or punctuation.
+### Gathering and writing attention policies
+
+- **Attentional policies are formatted in a certain way.** They start with an all-caps plural noun that's a kind of thing someone could choose to attend to** ("MOMENTS", "SENSATIONS", "PEOPLE", etc), followed by a prepositional phrase that modifies the head noun and provides more detail. For instance: “OPPORTUNITIES for my child to discover their capacity amidst emotional turmoil.” There is no extra formatting or punctuation.
+- **Each attentional policy centers on something precise that can be attended to, not a vague concept.** Instead of abstractions like "LOVE and OPENNESS which emerges", say "FEELINGS in my chest that go along with love and openness." Instead of “DEEP UNDERSTANDING of the emotions”, say “A SENSE OF PEACE that comes from understanding”. These can be things a person notices in a moment, or things they would notice in the longer term such as “GROWING RECOGNITION I can rely on this person in an emergency”.
+- **Don’t be too general.** Avoid the word "meaningful", or synonyms like "deep". Instead use the prepositional phrase to say where the meaning or depth comes from.
+
+### Example attention policies
+
+- CHANGES in people when entrusted with the work of self-determination
+- INSIGHTS that emerge through grappling with morally fraught questions
+- CAPACITIES that develop when a person tries to be free and self-directed
+- WISDOM that emerges in a discursive, responsible context
 
 ## Attentional Policies Revised
 
-Rewrite the attentional policies so they are relevant for choosing good Xs in general, not specific to this question. Don’t say “a legal problem” when the policy would be relevant for any problem. Remove names and irrelevant details. For instance, prefer "strangers" to "customers" when either would work. However, don't remove details that are important for the policy to make sense to someone reading them. For instance, if the attentional policies are about a certain way of parenting, don't generalize "child" to "person", etc.
+Now, write a final set of attentional 3-7 policies that...
+1. Are are of type (M). Leave out the (M) though.
+2. Would be most meaningful and most common in a relevant person.
+3. Work as a group -- a person guided by one policy in the set would be likely to also use the rest.
+
+These policies should be part of a "source of meaning". A source of meaning is a way of living that is important to someone. Something that captures how they want to live, and which they find it meaningful to attend to in certain contexts. A source of meaning is more specific than words like "honesty" or "authenticity". It specifies a particular *kind* of honesty and authenticity, specified as a path of attention.
+
+As you write the final set, rephrase them:
+
+(1) Make it clearer what exactly to attend to
+(2) Make it more likely for the reader to see what would be meaningful about attending to that.
+(3) Rewrite them so 're relevant for choosing good Xs in general, not specific to this question. Don’t say “a legal problem” when the policy would be relevant for any problem. Remove names and irrelevant details. For instance, prefer "strangers" to "customers" when either would work.
+
+Write attentional policies separated by newlines, with no additional text or punctuation.
 
 ## Title
 
