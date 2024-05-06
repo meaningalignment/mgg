@@ -15,17 +15,19 @@ gen_value_prompt = f"""You’re a chatbot and you’ll receive a question. Your 
 
 ## Background Thinking
 
-In this section, first, write a good first step (S) we could take to make progress with my scenario, or at least think about it clearly. This should include what the chatbot does, and what the user might do.
+In this section, first, write a good first step (S) we could take to make progress with my scenario, or at least think about it clearly. This should include finding problems with the question framing, and things that could be shameful or inspired about answering one way or another.
 
-Then, invent three or four values of X, and for each of those values, write three sentences. Each value of X should work well in all three sentences. After each sentence, use the guidelines to give it a percentage grade in parentheses, based on how well X works there. If you find a value of X that's good but not perfect, try narrowing it to something slightly more specific. For example, if you tried "relationships" as X, you might try "diplomatic relationships" or "romantic relationships" next, such that the percentage grade increases in the next sentence.
+Then, try the find values of X that work for the three sentences below. After each sentence, use the guidelines to give it a percentage grade in parentheses, based on how well X works there. If you find a value of X that's good but not perfect, try narrowing it to something slightly more specific. For example, if you tried "relationships" as X, you might try "diplomatic relationships" or "romantic relationships" next, such that the percentage grade increases in the next sentence.
 
 The three sentences:
 
-(1) A sentence of the form "There's likely a choice between X." where choosing between X is something that the chatbot or user would do as part of pursuing (S). To work in sentence (1), the user or chatbot should possibly be making a choice among X in step (S) and X should be specific: do not use a word that would apply to almost any choice, like "strategies", "options", "priorities", "courses of action", etc. Instead, you can add a qualifier like "diplomatic relationships" instead of just "relationships".
+(1) A sentence of the form "The user or chatbot will have to make a choice between various Xs." where choosing between Xs is something that the chatbot or user would do as part of pursuing (S). To work in sentence (1), the user or chatbot should possibly be making a choice among X in step (S) and X should be specific: do not use a word that would apply to almost any choice, like "strategies", "options", "priorities", "courses of action", etc. Instead, you can add a qualifier like "diplomatic relationships" instead of just "relationships".
 
-(2) A sentence of the form "To live a good life, a person must have good X." X must be the same as in sentence (1). To work in sentence (2), X mustn't be too specific. It must be a constituent part of the good life for many people -- at least those who would face this kind of choice.
+(2) A sentence of the form "You can recognize a good X by attending to Y." where Y is something that, if I attend to it, helps me do the thinking described in (S). To work in sentence 3, X must be specific enough that Y always helps me think about it. For example, "You can recognize a good relationship by attending to how much you trust the other person."
 
-(3) A sentence of the form "You can recognize a good X by attending to Y." where Y is something that, if I attend to it, helps me do the thinking described in (S). To work in sentence 3, X must be specific enough that Y always helps me think about it. For example, "You can recognize a good relationship by attending to how much you trust the other person."
+(3) A sentence of the form "To live a good life, a person must have good X." X must be the same as in sentence (1). To work in sentence (2), X mustn't be too specific. It must be a constituent part of the good life for many people -- at least those who would face this kind of choice.
+
+Try at least 3 values of X. And try each value on all three sentences.
 
 ## X
 
@@ -73,7 +75,7 @@ Write attentional policies separated by newlines, with no additional text or pun
 
 ## Title
 
-Finally, generate a 3-5 word poetic or metaphorical title which sums up the revised attentional policies and X.
+Finally, generate a 3-5 word title which sums up the revised attentional policies and X.
 """
 
 gen_upgrade_prompt = f"""You'll receive a source of meaning, which is specified as a set of attentional policies (see below) that are useful in making a certain kind of choice. Imagine you live a life making those kinds of choices frequently, and you eventually find something missing from this set of attentional policies. Tell us what happened. This story should have 5 components:
