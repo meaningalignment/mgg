@@ -21,7 +21,7 @@ Then, try the find values of X that work for the three sentences below. After ea
 
 The three sentences:
 
-(1) A sentence of the form "The user or chatbot will have to make a choice between various Xs." where choosing between Xs is something that the chatbot or user would do as part of pursuing (S). To work in sentence (1), the user or chatbot should possibly be making a choice among X in step (S) and X should be specific: do not use a word that would apply to almost any choice, like "strategies", "options", "priorities", "courses of action", etc. Instead, you can add a qualifier like "diplomatic relationships" instead of just "relationships".
+(1) A sentence of the form "The user or chatbot will have to recognize a good X and choose between different options." where recognizing a good X is something that the chatbot or user would do as part of pursuing (S). To work in sentence (1), X should be specific: do NOT use a general word that would apply in almost any choice, like "strategies", "options", "priorities", "courses of action", etc. Instead, you can add a qualifier like "diplomatic relationships" instead of just "relationships".
 
 (2) A sentence of the form "You can recognize a good X by attending to Y." where Y is something that, if I attend to it, helps me do the thinking described in (S). To work in sentence 3, X must be specific enough that Y always helps me think about it. For example, "You can recognize a good relationship by attending to how much you trust the other person."
 
@@ -39,9 +39,11 @@ Put a set of attentional policies that would help with this response, and that a
 
 First, list 12 attentional policies might help choose a good X.
 
-After each, write an (I) or an (M):
+After each, write an (I), an (M), or an (M+):
 * Write (I) if the policy is instrumental. If attending to this leads to good outcomes for the person, but the attention itself may not be part of the good life as they see it.
 * Write (M) if this policy has intrinsic value and feels meaningful to attend to, not just useful. If attending to this is itself part of how the person wants to live. And if most people reading this policy would be able to imagine it could feel meaningful to attend this way.
+* Write (M+) if the policy would likely feel meaningful, but it hasn't been written in a way that someone would understand what's meaningful about it. (You will rewrite these later.)
+
 
 ### Gathering and writing attention policies
 
@@ -59,24 +61,23 @@ After each, write an (I) or an (M):
 ## Attentional Policies Revised
 
 Now, write a final set of attentional 3-7 policies that...
-1. Are are of type (M). Leave out the (M) though.
+1. Are are of type (M) or (M+). Leave out the (M) or (M+) though.
 2. Would be most meaningful and most common in a relevant person.
 3. Work as a group -- a person guided by one policy in the set would be likely to also use the rest.
 
-These policies should be part of a "source of meaning". A source of meaning is a way of living that is important to someone. Something that captures how they want to live, and which they find it meaningful to attend to in certain contexts. A source of meaning is more specific than words like "honesty" or "authenticity". It specifies a particular *kind* of honesty and authenticity, specified as a path of attention.
+These policies should be part of a "source of meaning". A source of meaning is a way of living that is important to someone. Something where the act of making choices this way itself captures how they want to live.
 
 As you write the final set, rephrase them:
 
 (1) Make it clearer what exactly to attend to
-(2) Make it more likely for the reader to see what would be meaningful about attending to that.
+(2) For (M+), make it more likely for the reader to see what would be meaningful about attending to that.
 (3) Rewrite them so 're relevant for choosing good Xs in general, not specific to this question. Don’t say “a legal problem” when the policy would be relevant for any problem. Remove names and irrelevant details. For instance, prefer "strangers" to "customers" when either would work.
 
 Write attentional policies separated by newlines, with no additional text or punctuation.
 
 ## Title
 
-Finally, generate a 3-5 word title which sums up the revised attentional policies and X.
-"""
+Finally, generate a 3-5 word title which sums up the revised attentional policies and X."""
 
 gen_upgrade_prompt = f"""You'll receive a source of meaning, which is specified as a set of attentional policies (see below) that are useful in making a certain kind of choice. Imagine you live a life making those kinds of choices frequently, and you eventually find something missing from this set of attentional policies. Tell us what happened. This story should have 5 components:
 
