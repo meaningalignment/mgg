@@ -25,11 +25,11 @@ class EdgeMetadata:
     def __init__(
         self,
         story: str,
-        input_value_was_really_about: str,
+        context_shifts: str,
         problem: dict,
         improvements: List[dict],
     ):
-        self.input_value_was_really_about = input_value_was_really_about
+        self.context_shifts = context_shifts
         self.improvements = improvements
         self.problem = problem
         self.story = story
