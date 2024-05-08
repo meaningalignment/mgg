@@ -165,7 +165,7 @@ class MoralGraph:
 
         # map the db values to their corresponding uuids, so we can link our edges to them
         db_values = db.valuescard.find_many(
-            where={"generationId": generation_id}, order={"id": "desc"}
+            where={"generationId": generation_id}, order={"id": "asc"}
         )
         uuid_to_id = {v.id: dbv.id for v, dbv in zip(self.values, db_values)}
 
