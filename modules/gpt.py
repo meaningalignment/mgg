@@ -24,7 +24,7 @@ def gpt4(
         )
 
     params = {
-        "model": "gpt-4-turbo",
+        "model": "gpt-4o",
         "messages": [*messages],
         "temperature": temperature,
     }
