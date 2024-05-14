@@ -10,8 +10,8 @@ def serialize(obj) -> dict | list:
         return obj
 
 
-def calculate_gp4_turbo_price(input_tokens, output_tokens):
-    return (input_tokens * 10 + output_tokens * 30) / 1_000_000
+def calculate_gp4o_price(input_tokens, output_tokens):
+    return ((input_tokens * 5) / 1_000_000) + ((output_tokens * 15) / 1_000_000)
 
 
 def parse_to_dict(text):

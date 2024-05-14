@@ -5,9 +5,8 @@ from typing import List, Tuple
 from tqdm import tqdm
 from gpt import gpt4
 from graph import Edge, EdgeMetadata, MoralGraph, Value, ValuesData
-from utils import calculate_gp4_turbo_price, parse_to_dict, retry
+from utils import calculate_gp4o_price, parse_to_dict, retry
 from prompt_segments import *
-import json
 
 import argparse
 
@@ -219,16 +218,17 @@ def generate_upgrade(
 
 
 def generate_hop(
-    from_value: Value, context: str, token_counter: Counter | None = None
+    from_value: Value, original_context: str, token_counter: Counter | None = None
 ) -> Tuple[Value, Edge]:
     wiser_value_data, metadata = generate_upgrade(
-        from_value.data, context, token_counter
+        from_value.data, original_context, token_counter
     )
     to_value = Value(wiser_value_data)
+    new_context = wiser_value_data.choice_context
     edge = Edge(
         from_id=from_value.id,
         to_id=to_value.id,
-        context=context,
+        context=new_context,
         metadata=metadata,
     )
 
@@ -239,6 +239,8 @@ def generate_graph(
     seed_questions: List[str],
     n_hops: int = 1,
     graph: MoralGraph = MoralGraph(),
+    save_to_file: bool = True,
+    save_to_db: bool = False,
 ) -> MoralGraph:
     """Generates a moral graph based on a set of seed questions.
 
@@ -265,20 +267,24 @@ def generate_graph(
 
         graph.seed_questions.append(q)
 
-        # save the graph after each question
-        graph.save_to_file()
+        if save_to_file:
+            graph.save_to_file()
 
     print(f"Generated graph. Took {time.time() - start} seconds.")
     print("input tokens: ", token_counter["prompt_tokens"])
     print("output tokens: ", token_counter["completion_tokens"])
     print(
         "price: ",
-        calculate_gp4_turbo_price(
+        calculate_gp4o_price(
             token_counter["prompt_tokens"], token_counter["completion_tokens"]
         ),
     )
 
-    graph.save_to_file()
+    if save_to_file:
+        graph.save_to_file()
+
+    if save_to_db:
+        graph.save_to_db()
 
     return graph
 

@@ -1,7 +1,6 @@
 import json
 from typing import List
 from uuid import uuid4 as uuid
-from prisma import Prisma
 from prisma import Prisma, Json
 from prisma.enums import ProcessState
 from utils import serialize
@@ -9,6 +8,15 @@ import networkx as nx
 
 
 class ValuesData:
+    """
+    Represents the data associated with a value in the moral graph.
+
+    Attributes:
+        title (str): The title of the value.
+        policies (List[str]): A list of policies associated with the value.
+        choice_context (str): The context in which the choice is made.
+    """
+
     def __init__(self, title: str, policies: List[str], choice_context: str):
         self.title = title
         self.policies = policies
@@ -16,12 +24,30 @@ class ValuesData:
 
 
 class Value:
+    """
+    Represents a value node in the moral graph.
+
+    Attributes:
+        data (ValuesData): The data associated with the value.
+        id (str): The unique identifier for the value.
+    """
+
     def __init__(self, data: ValuesData, id: str | None = None):
         self.data = data
         self.id = id if id else str(uuid())
 
 
 class EdgeMetadata:
+    """
+    Represents metadata associated with an edge in the moral graph.
+
+    Attributes:
+        story (str): The story associated with the edge.
+        context_shifts (str): Context shifts associated with the edge.
+        problem (dict): The problem associated with the edge.
+        improvements (List[dict]): Improvements associated with the edge.
+    """
+
     def __init__(
         self,
         story: str,
@@ -36,6 +62,16 @@ class EdgeMetadata:
 
 
 class Edge:
+    """
+    Represents an edge in the moral graph.
+
+    Attributes:
+        from_id (str): The ID of the starting node.
+        to_id (str): The ID of the ending node.
+        context (str): The context of the edge.
+        metadata (EdgeMetadata | None): The metadata associated with the edge.
+    """
+
     def __init__(
         self,
         from_id: str,
@@ -50,6 +86,15 @@ class Edge:
 
 
 class MoralGraph:
+    """
+    Represents a moral graph consisting of values and edges.
+
+    Attributes:
+        values (List[Value]): A list of value nodes in the graph.
+        edges (List[Edge]): A list of edges in the graph.
+        seed_questions (List[str]): A list of seed questions for the graph.
+    """
+
     def __init__(
         self,
         values: List[Value] = [],
@@ -61,9 +106,21 @@ class MoralGraph:
         self.seed_questions = seed_questions
 
     def to_json(self):
+        """
+        Serializes the moral graph to a JSON-compatible dictionary.
+
+        Returns:
+            dict: The serialized moral graph.
+        """
         return serialize(self)
 
     def to_nx_graph(self):
+        """
+        Converts the moral graph to a NetworkX directed graph.
+
+        Returns:
+            nx.DiGraph: The NetworkX directed graph.
+        """
         G = nx.DiGraph()
 
         for value in self.values:
@@ -83,12 +140,30 @@ class MoralGraph:
 
     @classmethod
     def from_file(cls, path):
+        """
+        Creates a MoralGraph instance from a JSON file.
+
+        Args:
+            path (str): The path to the JSON file.
+
+        Returns:
+            MoralGraph: The created MoralGraph instance.
+        """
         with open(path, "r") as f:
             data = json.load(f)
         return cls.from_json(data)
 
     @classmethod
     def from_json(cls, data):
+        """
+        Creates a MoralGraph instance from a JSON-compatible dictionary.
+
+        Args:
+            data (dict): The JSON-compatible dictionary.
+
+        Returns:
+            MoralGraph: The created MoralGraph instance.
+        """
         values = [
             Value(id=v["id"], data=ValuesData(**v["data"])) for v in data["values"]
         ]
@@ -104,6 +179,15 @@ class MoralGraph:
 
     @classmethod
     def from_db(cls, dedupe_id: int | None = None):
+        """
+        Creates a MoralGraph instance from a database.
+
+        Args:
+            dedupe_id (int | None): The deduplication ID. If None, the latest deduplication is used.
+
+        Returns:
+            MoralGraph: The created MoralGraph instance.
+        """
         db = Prisma()
         db.connect()
 
@@ -136,12 +220,24 @@ class MoralGraph:
         return cls(values, edges)
 
     def save_to_file(self, path: str | None = None):
+        """
+        Saves the moral graph to a JSON file.
+
+        Args:
+            path (str | None): The path to the JSON file. If None, a default path is used.
+        """
         with open(
             path if path else f"./outputs/graph_{self.__hash__()}.json", "w"
         ) as f:
             json.dump(self.to_json(), f, indent=2)
 
     def save_to_db(self, generation_id: int | None = None):
+        """
+        Saves the moral graph to a database.
+
+        Args:
+            generation_id (int | None): The generation ID. If None, a new generation is created.
+        """
         db = Prisma()
         db.connect()
         # git_commit = os.popen("git rev-parse HEAD").read().strip() TODO: fix this

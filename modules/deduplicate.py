@@ -5,7 +5,7 @@ from sklearn.cluster import DBSCAN
 import numpy as np
 import json
 from prisma import Json, Prisma
-from prisma.models import DeduplicatedCard, ValuesCard, Deduplication
+from prisma.models import DeduplicatedCard, ValuesCard
 from prisma.enums import ProcessState
 from tqdm import tqdm
 from gpt import gpt4
@@ -16,7 +16,7 @@ from prompt_segments import attentional_policy_definition
 
 import argparse
 
-from utils import retry
+from utils import *
 
 
 class ClusterableObject(BaseModel):
