@@ -5,7 +5,7 @@ from typing import List, Tuple
 from tqdm import tqdm
 from gpt import gpt4
 from graph import Edge, EdgeMetadata, MoralGraph, Value, ValuesData
-from utils import calculate_gp4_turbo_price, parse_to_dict
+from utils import calculate_gp4_turbo_price, parse_to_dict, retry
 from prompt_segments import *
 import json
 
@@ -164,6 +164,7 @@ Finally, generate a 3-5 word title which sums up the revised attentional policie
 """
 
 
+@retry(times=3)
 def generate_value(
     question: str, token_counter: Counter | None = None
 ) -> Tuple[ValuesData, str]:
@@ -183,11 +184,12 @@ def generate_value(
     return values_data, context
 
 
+@retry(times=3)
 def generate_upgrade(
     value: ValuesData, context: str, token_counter: Counter | None = None
 ) -> Tuple[ValuesData, EdgeMetadata]:
     user_prompt = f"""X: good {context}\n\n{', '.join(value.policies)}"""
-    response = str(gpt4( gen_upgrade_prompt, user_prompt, token_counter=token_counter ))
+    response = str(gpt4(gen_upgrade_prompt, user_prompt, token_counter=token_counter))
     print(response)
     response_dict = parse_to_dict(response)
     policies_text = response_dict["Attentional Policies Revised"]
@@ -202,7 +204,9 @@ def generate_upgrade(
     story = response_dict["Story"]
     problem = response_dict["Problem"]
     context_shifts = response_dict["Context Shifts"]
-    improvements = response_dict.get("Improvements to the Attentional Policies", "Missing")
+    improvements = response_dict.get(
+        "Improvements to the Attentional Policies", "Missing"
+    )
 
     metadata = EdgeMetadata(
         context_shifts=context_shifts,

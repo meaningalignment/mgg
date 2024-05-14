@@ -16,6 +16,8 @@ from prompt_segments import attentional_policy_definition
 
 import argparse
 
+from utils import retry
+
 
 class ClusterableObject(BaseModel):
     id: int
@@ -128,6 +130,7 @@ def _cluster(objects: List[ClusterableObject]):
     return list(labels_to_objs.values())
 
 
+@retry(times=3)
 def _fetch_similar_deduplicated_card(
     candidate: ValuesCard, deduplication_id: int
 ) -> DeduplicatedCard | None:
@@ -148,6 +151,7 @@ def _fetch_similar_deduplicated_card(
     return next((c for c in similar_cards if c.id == matching_id), None)
 
 
+@retry(times=3)
 def _get_representative(card_ids: List[int]):
     cards = db.valuescard.find_many(where={"id": {"in": card_ids}})
     if len(cards) == 1:

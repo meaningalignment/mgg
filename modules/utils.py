@@ -26,3 +26,18 @@ def parse_to_dict(text):
 
 def count_sentences(text: str) -> int:
     return len([s for s in re.split(r"[.!?]+\s*", text.strip()) if s])
+
+
+def retry(times=3):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            for _ in range(times):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    print(f"Error: {e}")
+            return None
+
+        return wrapper
+
+    return decorator
