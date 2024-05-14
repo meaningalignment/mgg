@@ -51,15 +51,15 @@ Make sure to label then correctly!
 
 ### Example attention policies
 
-- CHANGES in people when entrusted with the work of self-determination
-- INSIGHTS that emerge through grappling with morally fraught questions
-- CAPACITIES that develop when a person tries to be free and self-directed
-- WISDOM that emerges in a discursive, responsible context
+CHANGES in people when entrusted with the work of self-determination
+INSIGHTS that emerge through grappling with morally fraught questions
+CAPACITIES that develop when a person tries to be free and self-directed
+WISDOM that emerges in a discursive, responsible context
 
 ## Attentional Policies Revised
 
 Now, write a final set of attentional 3-7 policies that...
-1. Are are of type (M) or (M+). No (I)s.
+1. Are of type (M) or (M+). No (I)s.
 2. Would be most meaningful and most common in a relevant person.
 3. Work as a group -- a person guided by one policy in the set would be likely to also use the rest.
 
@@ -143,7 +143,7 @@ Make sure to label then correctly!
 ## Attentional Policies Revised
 
 Now, write a final set of attentional 3-7 policies that...
-1. Are are of type (M) or (M+). No (I)s.
+1. Are of type (M) or (M+). No (I)s.
 2. Would be most meaningful and most common in a relevant person.
 3. Work as a group -- a person guided by one policy in the set would be likely to also use the rest.
 
