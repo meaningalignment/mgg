@@ -1,3 +1,4 @@
+from collections import Counter
 from typing import List
 from openai import OpenAI
 from pydantic import BaseModel
@@ -8,15 +9,16 @@ from prisma import Json, Prisma
 from prisma.models import DeduplicatedCard, ValuesCard
 from prisma.enums import ProcessState
 from tqdm import tqdm
+from embed import embed_card, embed_cards
 from gpt import gpt4
 from sklearn.cluster import DBSCAN
 from sklearn.metrics.pairwise import cosine_distances
 
-from prompt_segments import attentional_policy_definition
-
-import argparse
+from prompt_segments import attentional_policy_definition, attentional_policy_guidelines
 
 from utils import *
+
+counter = Counter()
 
 
 class ClusterableObject(BaseModel):
@@ -31,7 +33,10 @@ class CardWithDistance(DeduplicatedCard):
 db = Prisma()
 client = OpenAI()
 
-guidelines = """
+
+dedupe_prompt = f"""
+You are given a values cards and a list of other canonical values cards. Determine if the value in the input values card is already represented by one of the canonical values. If so, return the id of the canonical values card that represents the source of meaning.
+
 # Guidelines
 Two or more values cards are about the same value if:
 - A user that articulated one of the cards would feel like the other cards in the cluster capture what they cared about *fully*.
@@ -42,16 +47,12 @@ Two or more values cards are about the same value if:
 Only if the cards pass all of these criteria can they be considered to be about the same value.
 """
 
-dedupe_prompt = f"""
-You are given a values cards and a list of other canonical values cards. Determine if the value in the input values card is already represented by one of the canonical values. If so, return the id of the canonical values card that represents the source of meaning.
-
-{guidelines}
-"""
-
 best_values_card_prompt = f"""
 You will be provided with a list of "values cards", all representing the same value. Your task is to return the "id" of the "values card" which has the best attentional policies, according to the guidelines below.
 
 {attentional_policy_definition}
+
+{attentional_policy_guidelines}
 """
 
 dedupe_function = {
@@ -84,15 +85,6 @@ best_function = {
 }
 
 
-def _embed_card(card: ValuesCard | DeduplicatedCard) -> List[float]:
-    text = (
-        "It feels meaningful to pay attention to the following in certain choices for me:\n"
-        + "\n".join(card.policies)
-    )
-    response = client.embeddings.create(model="text-embedding-3-small", input=text)
-    return response.data[0].embedding
-
-
 def _similarity_search(
     candidate: ValuesCard, deduplication_id: int, limit: int = 5, threshold: float = 0.1
 ) -> List[DeduplicatedCard]:
@@ -108,12 +100,14 @@ def _similarity_search(
     return [r for r in result if r.distance < threshold]
 
 
-def _cluster(objects: List[ClusterableObject]):
+def _cluster(
+    objects: List[ClusterableObject], eps: float = 0.05, min_samples: int = 3
+) -> List[List[ClusterableObject]]:
     embeddings = np.array([obj.embedding for obj in objects])
     distance_matrix = cosine_distances(embeddings)
 
     # Run DBSCAN
-    clustering = DBSCAN(eps=0.11, min_samples=3, metric="precomputed").fit(
+    clustering = DBSCAN(eps=eps, min_samples=min_samples, metric="precomputed").fit(
         distance_matrix
     )
 
@@ -145,7 +139,9 @@ def _fetch_similar_deduplicated_card(
             ],
         }
     )
-    response = gpt4(user_prompt, dedupe_prompt, function=dedupe_function)
+    response = gpt4(
+        user_prompt, dedupe_prompt, function=dedupe_function, token_counter=counter
+    )
     assert isinstance(response, dict)
     matching_id = response["canonical_card_id"]
     return next((c for c in similar_cards if c.id == matching_id), None)
@@ -157,14 +153,16 @@ def _get_representative(card_ids: List[int]):
     if len(cards) == 1:
         return cards[0]
     message = json.dumps([{"id": c.id, "policies": c.policies} for c in cards])
-    response = gpt4(message, best_values_card_prompt, function=best_function)
+    response = gpt4(
+        message, best_values_card_prompt, function=best_function, token_counter=counter
+    )
     assert isinstance(response, dict)
     best_values_card_id = response["best_values_card_id"]
     return next((c for c in cards if c.id == best_values_card_id))
 
 
 def _create_deduplicated_card(card: ValuesCard, deduplication_id: int):
-    embeddings = _embed_card(card)
+    embeddings = embed_card(card)
     canonical = db.deduplicatedcard.create(
         data={
             "title": card.title,
@@ -197,20 +195,6 @@ def _link_to_deduplicated_card(
         "for deduplication ",
         deduplication_id,
     )
-
-
-def _embed_cards(generation_id: int):
-    """Embed all ValuesCards."""
-    if not db.is_connected():
-        db.connect()
-    query = f"""SELECT "id", "title", "policies", "generationId", "createdAt", "updatedAt" FROM "ValuesCard" WHERE "embedding" IS NULL AND "generationId" = {generation_id};"""
-    cards = db.query_raw(query, model=ValuesCard)
-    print("Embedding all values cards...")
-    for card in tqdm(cards):
-        embeddings = _embed_card(card)
-        query = f"""UPDATE "ValuesCard" SET embedding = '{json.dumps(embeddings)}'::vector WHERE id = {card.id};"""
-        db.execute_raw(query)
-    db.disconnect()
 
 
 def _get_or_create_deduplication(generation_id: int):
@@ -278,7 +262,48 @@ def _deduplicate_cards(deduplication_id: int, generation_id: int) -> None:
     db.disconnect()
 
 
-def _deduplicate_edges(deduplication_id: int, generation_id: int) -> None:
+def _ctx_cluster_repr(contexts: List[str]) -> str:
+    return contexts[0].title()
+
+
+def _deduplicate_contexts(
+    deduplication_id: int, contexts: List[str]
+) -> List[List[str]]:
+    """Deduplicate all contexts."""
+    embeddings = client.embeddings.create(
+        model="text-embedding-3-large", input=[c.lower() for c in contexts]
+    )
+    cluster_objs = [
+        ClusterableObject(id=i, embedding=embeddings.data[i].embedding)
+        for i in range(len(contexts))
+    ]
+    clusters = [
+        [contexts[c.id] for c in cluster]
+        for cluster in _cluster(cluster_objs, eps=0.25, min_samples=1)
+    ]
+    print(f"Turned {len(contexts)} contexts into {len(clusters)} clusters.")
+
+    # Add all deduplicated contexts to the database for the deduplication.
+    for cluster in clusters:
+        # For now, just use the first context as the representative.
+        context = _ctx_cluster_repr(cluster)
+        db.deduplicatedcontext.upsert(
+            where={
+                "name_deduplicationId": {
+                    "name": context,
+                    "deduplicationId": deduplication_id,
+                }
+            },
+            data={
+                "create": {"name": context, "deduplicationId": deduplication_id},
+                "update": {},
+            },
+        )
+
+    return clusters
+
+
+def _deduplicate_edges_and_contexts(deduplication_id: int, generation_id: int) -> None:
     """Deduplicate all edges for the latest deduplication generation."""
     if not db.is_connected():
         db.connect()
@@ -292,21 +317,17 @@ def _deduplicate_edges(deduplication_id: int, generation_id: int) -> None:
             },
         }
     )
-    # Add all contexts to the database for the deduplication.
-    contexts = list(set([e.contextName for e in edges]))
-    for context in contexts:
-        db.deduplicatedcontext.upsert(
-            where={
-                "name_deduplicationId": {
-                    "name": context,
-                    "deduplicationId": deduplication_id,
-                }
-            },
-            data={
-                "create": {"name": context, "deduplicationId": deduplication_id},
-                "update": {},
-            },
-        )
+
+    # Deduplicate contexts.
+    contexts = list([e.contextName for e in edges])
+    deduplicated_contexts = _deduplicate_contexts(deduplication_id, contexts)
+    # Create lookup table.
+    ctx_to_deduped_ctx = {
+        ctx: _ctx_cluster_repr(cluster)
+        for cluster in deduplicated_contexts
+        for ctx in cluster
+    }
+
     # Deduplicate all edges.
     for edge in tqdm(edges):
         # Find the deduplicated cards for the edge.
@@ -339,7 +360,7 @@ def _deduplicate_edges(deduplication_id: int, generation_id: int) -> None:
                 "fromId_toId_contextName": {
                     "fromId": from_deduplicated_card.id,
                     "toId": to_deduplicated_card.id,
-                    "contextName": edge.contextName,
+                    "contextName": ctx_to_deduped_ctx[edge.contextName],
                 }
             },
             data={
@@ -347,12 +368,13 @@ def _deduplicate_edges(deduplication_id: int, generation_id: int) -> None:
                     "fromId": from_deduplicated_card.id,
                     "toId": to_deduplicated_card.id,
                     "metadata": Json(edge.metadata),
-                    "contextName": edge.contextName,
+                    "contextName": ctx_to_deduped_ctx[edge.contextName],
                     "deduplicationId": deduplication_id,
                 },
                 "update": {},
             },
         )
+        # Link the deduplicated edge to the deduplicated context.
         db.edgetodeduplicatededge.create(
             data={
                 "fromId": edge.fromId,
@@ -360,13 +382,55 @@ def _deduplicate_edges(deduplication_id: int, generation_id: int) -> None:
                 "contextName": edge.contextName,
                 "deduplicatedFromId": from_deduplicated_card.id,
                 "deduplicatedToId": to_deduplicated_card.id,
-                "deduplicatedContextName": edge.contextName,
+                "deduplicatedContextName": ctx_to_deduped_ctx[edge.contextName],
             }
         )
+        # Link deduplicated contexts to deduplicated cards directly.
+        for card in [from_deduplicated_card, to_deduplicated_card]:
+            original_cards = db.valuescard.find_many(
+                where={
+                    "ValuesCardToDeduplicatedCard": {
+                        "some": {"deduplicatedCardId": card.id}
+                    }
+                }
+            )
+            original_ctx = [c.choiceContext for c in original_cards]
+            deduped_ctx = [
+                ctx_to_deduped_ctx[c] for c in original_ctx if c in ctx_to_deduped_ctx
+            ]
+
+            # Link the deduplicated card to the deduplicated contexts.
+            for dc in deduped_ctx:
+                db.deduplicatedcardtocontext.upsert(
+                    where={
+                        "deduplicatedCardId_deduplicatedContextId_deduplicationId": {
+                            "deduplicatedCardId": card.id,
+                            "deduplicatedContextId": dc,
+                            "deduplicationId": deduplication_id,
+                        }
+                    },
+                    data={
+                        "create": {
+                            "deduplicatedCardId": card.id,
+                            "deduplicatedContextId": dc,
+                            "deduplicationId": deduplication_id,
+                        },
+                        "update": {},
+                    },
+                )
+    db.disconnect()
+
+
+def _finish_deduplication(deduplication_id: int):
+    db.connect()
+    db.deduplication.update(
+        where={"id": deduplication_id}, data={"state": ProcessState.FINISHED}
+    )
     db.disconnect()
 
 
 def deduplicate(generation_id: int | None = None):
+    token_counter = Counter()
     # If no generation_id is provided, use the latest generation.
     if generation_id is None:
         db.connect()
@@ -377,28 +441,31 @@ def deduplicate(generation_id: int | None = None):
         db.disconnect()
         print(f"Deduplicating generation {generation_id}")
 
-    _embed_cards(generation_id)
+    embed_cards(generation_id)
     # Create or continue deduplication run.
     deduplication = _get_or_create_deduplication(generation_id)
-    # Deduplicate cards and edges.
+    # Deduplicate cards, edges and contexts.
     _deduplicate_cards(deduplication.id, generation_id)
-    _deduplicate_edges(deduplication.id, generation_id)
+    _deduplicate_edges_and_contexts(deduplication.id, generation_id)
     # Mark the deduplication as finished.
-    db.connect()
-    db.deduplication.update(
-        where={"id": deduplication.id}, data={"state": ProcessState.FINISHED}
-    )
-    db.disconnect()
+    _finish_deduplication(deduplication.id)
     print(f"Finished deduplication {deduplication.id}.")
+    print(
+        "price: ",
+        calculate_gp4o_price(
+            token_counter["prompt_tokens"], token_counter["completion_tokens"]
+        ),
+    )
 
 
 if __name__ == "__main__":
-    """Deduplicate a generation."""
-    parser = argparse.ArgumentParser(description="Deduplicate a graph.")
-    parser.add_argument(
-        "--generation_id",
-        type=int,
-        help="The generation to deduplicate.",
-    )
-    args = parser.parse_args()
-    deduplicate(args.generation_id)
+    # """Deduplicate a generation."""
+    # parser = argparse.ArgumentParser(description="Deduplicate a graph.")
+    # parser.add_argument(
+    #     "--generation_id",
+    #     type=int,
+    #     help="The generation to deduplicate.",
+    # )
+    # args = parser.parse_args()
+    # deduplicate(args.generation_id)
+    deduplicate(34)
