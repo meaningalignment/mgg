@@ -1,3 +1,4 @@
+import argparse
 from collections import Counter
 from typing import List
 from openai import OpenAI
@@ -459,13 +460,12 @@ def deduplicate(generation_id: int | None = None):
 
 
 if __name__ == "__main__":
-    # """Deduplicate a generation."""
-    # parser = argparse.ArgumentParser(description="Deduplicate a graph.")
-    # parser.add_argument(
-    #     "--generation_id",
-    #     type=int,
-    #     help="The generation to deduplicate.",
-    # )
-    # args = parser.parse_args()
-    # deduplicate(args.generation_id)
-    deduplicate(34)
+    """Deduplicate a generation."""
+    parser = argparse.ArgumentParser(description="Deduplicate a graph.")
+    parser.add_argument(
+        "--generation_id",
+        type=int,
+        help="The generation to deduplicate.",
+    )
+    args = parser.parse_args()
+    deduplicate(args.generation_id)
