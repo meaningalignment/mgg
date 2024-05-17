@@ -36,7 +36,7 @@ client = OpenAI()
 
 
 dedupe_prompt = f"""
-You are given a values cards and a list of other canonical values cards. Determine if the value in the input values card is already represented by one of the canonical values. If so, return the id of the canonical values card that represents the source of meaning.
+You are given a values card and a list of other canonical values cards. Determine if the value in the input values card is already represented by one of the canonical values. If so, return the id of the canonical values card that represents the source of meaning.
 
 # Guidelines
 Two or more values cards are about the same value if:
