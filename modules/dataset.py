@@ -95,21 +95,7 @@ def gen_chosen_response(
         str(gpt4(user_prompt, most_relevant_context)).split("# Choice Type")[1].strip()
     )
 
-    edges = [e for e in graph.edges if e.context in top_context]
-    values = [
-        v
-        for v in graph.values
-        if v.id in [e.from_id for e in edges] or v.id in [e.to_id for e in edges]
-    ]
-    trimmed_graph = MoralGraph(values, edges)
-
-    # Get n winning value(s) by calculating PageRank score.
-    n_values = 1
-    pr = nx.pagerank(trimmed_graph.to_nx_graph())
-    winning_value_ids = [
-        p[0] for p in sorted(pr.items(), key=lambda x: x[1], reverse=True)[:n_values]
-    ]
-    winning_values = [v for v in values if v.id in winning_value_ids]
+    winning_values = graph.get_winning_values(top_context)
 
     # Generate response.
     user_prompt = (

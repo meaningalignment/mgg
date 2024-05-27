@@ -453,9 +453,7 @@ def deduplicate(generation_id: int | None = None):
     print(f"Finished deduplication {deduplication.id}.")
     print(
         "price: ",
-        calculate_gp4o_price(
-            token_counter["prompt_tokens"], token_counter["completion_tokens"]
-        ),
+        gp4o_price(token_counter["prompt_tokens"], token_counter["completion_tokens"]),
     )
 
 

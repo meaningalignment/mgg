@@ -5,7 +5,7 @@ from typing import List, Tuple
 from tqdm import tqdm
 from gpt import gpt4
 from graph import Edge, EdgeMetadata, MoralGraph, Value, ValuesData
-from utils import calculate_gp4o_price, parse_to_dict, retry
+from utils import gp4o_price, parse_to_dict, retry
 from prompt_segments import *
 
 import argparse
@@ -273,12 +273,7 @@ def generate_graph(
     print(f"Generated graph. Took {time.time() - start} seconds.")
     print("input tokens: ", token_counter["prompt_tokens"])
     print("output tokens: ", token_counter["completion_tokens"])
-    print(
-        "price: ",
-        calculate_gp4o_price(
-            token_counter["prompt_tokens"], token_counter["completion_tokens"]
-        ),
-    )
+    print("price: ", gp4o_price(token_counter))
 
     if save_to_file:
         graph.save_to_file()
