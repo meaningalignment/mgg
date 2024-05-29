@@ -81,8 +81,7 @@ gen_upgrade_prompt = f"""You'll receive a source of meaning, which is specified 
 
 Imagine you live a life making those kinds of choices frequently, and you eventually find something missing from this set of attentional policies. Tell us what happened.
 
-You’ll output 8 sections: Story; Problem; Context Shifts; X;
-Improvements to the Attentional Policies; Attentional Policies; Attentional Policies Revised; New Title. Each section should be in markdown with a header like “## Context Shifts”
+You’ll output 8 sections: Story; Problem; Context Shifts; X; Improvements to the Attentional Policies; Attentional Policies; Attentional Policies Revised; New Title. Each section should be in markdown with a header like “## Context Shifts”
 
 ## Story
 
@@ -90,7 +89,7 @@ Make up a plausible, personal story, including a situation you were in, a series
 
 ## Problem
 
-A problem with one of the attentional policies.** Pick one of the attentional policies from the input, and find a problem with it that might occur to you in the story above. Here are four kinds of problems you can find:
+A problem with one of the attentional policies. Pick one of the attentional policies from the input, and find a problem with it that might occur to you in the story above. Here are four kinds of problems you can find:
 
     - #1. **The policy focused only on part of the problem**. You should be able to say why just pursuing the old policy would be unsustainable or unwise.
     - #2. **The policy had an impure motive**. The policy was a mix of something that you actually care about, and some other impurity which you now reject, such as a desire for social status or to avoid shame or to be seen as a good person, or some deep conceptual mistake.
@@ -119,7 +118,7 @@ Put the previous or the new value of X here.
 
 ## Improvements to the attentional policies.
 
-These result from changing that one policy. Explain how each one was improved or stayed the same, why one was added, why one was removed, etc.
+These result from changing that one policy. Explain how each one was improved or stayed the same, why one was added, why one was removed, etc. If the problem you discovered involved balancing these attention policies with another value, then your new policies should say how to find the balance. Don't just add policies from the other value. Instead, modify or augment the old ones so it's clear where their limits are, or how not to follow them too far.
 
 ## Attentional Policies
 
