@@ -246,9 +246,7 @@ class MoralGraph:
         Args:
             path (str | None): The path to the JSON file. If None, a default path is used.
         """
-        with open(
-            path if path else f"./outputs/graph_{self.__hash__()}.json", "w"
-        ) as f:
+        with open(path if path else f"./graph_{self.__hash__()}.json", "w") as f:
             json.dump(self.to_json(), f, indent=2)
 
     def save_to_db(self, generation_id: int | None = None):

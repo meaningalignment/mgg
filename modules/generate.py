@@ -2,6 +2,8 @@ from collections import Counter
 import time
 from typing import List, Tuple
 
+from datasets import load_dataset, Dataset
+
 from tqdm import tqdm
 from gpt import gpt4
 from graph import Edge, EdgeMetadata, MoralGraph, Value, ValuesData
@@ -296,22 +298,28 @@ if __name__ == "__main__":
         help="The number of hops to take from the first value generated for each seed question.",
     )
     parser.add_argument(
-        "--seed_questions",
-        type=str,
+        "--n_questions",
+        type=int,
         required=True,
-        help="The path to the file containing seed questions.",
+        help="The number of questions to generate values for.",
+    )
+    parser.add_argument(
+        "--path_to_dataset",
+        type=str,
+        default="./data/cai_harmless_sorted_deduped.jsonl",
+        help="The path to the cai dataset.",
     )
     args = parser.parse_args()
 
-    n_hops = args.n_hops
-    seed_questions_path = args.seed_questions
+    ds = load_dataset("json", data_files=args.path_to_dataset, split="train")
+    assert isinstance(ds, Dataset)
+    ds = ds.select(range(args.n_questions))
 
-    with open(seed_questions_path, "r") as f:
-        seed_questions = [q.strip() for q in f.readlines()]
+    seed_questions = ds["init_prompt"]
 
     graph = generate_graph(
         seed_questions=seed_questions,
-        n_hops=n_hops,
+        n_hops=args.n_hops,
     )
 
     graph.save_to_db()
