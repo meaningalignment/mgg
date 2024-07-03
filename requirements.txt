@@ -16,3 +16,4 @@ importlib
 mypy
 gitpython
 datasets
+anthropic

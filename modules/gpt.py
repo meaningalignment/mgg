@@ -2,6 +2,7 @@ from collections import Counter
 import json
 from typing import List
 import openai
+from anthropic import Anthropic
 
 client = openai.OpenAI()
 
@@ -47,3 +48,29 @@ def gpt4(
         if function
         else result.choices[0].message.content.strip()
     )
+
+
+def sonnet(
+    user_prompt: str,
+    system_prompt: str,
+    temperature: float = 0.0,
+) -> str:
+
+    message = Anthropic().messages.create(
+      model="claude-3-5-sonnet-20240620",
+      system=system_prompt,
+      temperature=temperature,
+      max_tokens=4096,
+      messages=[
+          {
+            "role": "user",
+            "content": [
+              {
+                  "type": "text",
+                  "text": user_prompt
+              }
+            ]
+          }
+      ],
+    )
+    return message.content[0].text # type: ignore
