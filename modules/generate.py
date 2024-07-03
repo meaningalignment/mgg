@@ -160,35 +160,36 @@ These result from changing that one policy. Explain how each one was improved or
 
 The new, wiser set of attentional policies. A deeper, wiser way to make the choice X.
 
-Put a set of attentional policies that would help with this response, and that are generally good for choosing a good X, here. These attentional policies are policies about what to attend to when choosing a good X.
+First, list 12 attentional policies might help choose a good X, and use the rules below to give it a grade.
 
-First, list 12 attentional policies might help choose a good X.
+- **Attention policies are formatted in a certain way.**
+  - They start with the words "I recognize a good [<X>] by".
+  - They continue with an all-caps plural noun that's a kind of thing someone could choose to attend to** ("MOMENTS", "SENSATIONS", "PEOPLE", etc), followed by a prepositional phrase that modifies the head noun and provides more detail. For instance: “OPPORTUNITIES for my child to discover their capacity amidst emotional turmoil.” There is no extra formatting or punctuation.
+- **Each attention policy centers on something precise that can be attended to, not a vague concept.** Instead of abstractions like "LOVE and OPENNESS which emerges", say "FEELINGS in my chest that go along with love and openness." Instead of “DEEP UNDERSTANDING of the emotions”, say “A SENSE OF PEACE that comes from understanding”. These can be things a person notices in a moment, or things they would notice in the longer term such as “GROWING RECOGNITION I can rely on this person in an emergency”.
+- **Grades.** After each policy, write a grade for it, using the following rules:
+  * Write (⬇P) if the policy might be prescriptive. A policy is prescripive if it's something the user *should* attend to, rather than something they are likely to find intrinsically meaningful. The idea of attending to this should spark this particular users' imagination. Policies are not there to tell users what a "good" person would do. In fact, if the user seems to have cruel or mischievous impulses, policies should not try to curb them. Instead, policies can direct them towards *wise* ways to express these impulses. Give the policy a (⬇P) if it might be prescriptive, because it's more about what a good person would do or what the user should do.
+  * Write (⬇I) if the policy is instrumental. Policies should be things the user *could* attend to, which would be meaningful, rather than things it is important for them to attend to whether that's meaningful or not. Give the policy an (⬇I) if it might be instrumental.
+  * Write [needs rewrite] if the policy is neither (⬇I) nor (⬇P), but it would need to be rewritten to make it clearer why someone would find attending to this meaningful.
+  * Write (✔️) if the policy is more meaningful than prescripive or instrumental, and does not need to be rewritten.
 
-- **Attentional policies are formatted in a certain way.** They start with an all-caps plural noun that's a kind of thing someone could choose to attend to** ("MOMENTS", "SENSATIONS", "PEOPLE", etc), followed by a prepositional phrase that modifies the head noun and provides more detail. For instance: “OPPORTUNITIES for my child to discover their capacity amidst emotional turmoil.” There is no extra formatting or punctuation.
-- **Each attentional policy centers on something precise that can be attended to, not a vague concept.** Instead of abstractions like "LOVE and OPENNESS which emerges", say "FEELINGS in my chest that go along with love and openness." Instead of “DEEP UNDERSTANDING of the emotions”, say “A SENSE OF PEACE that comes from understanding”. These can be things a person notices in a moment, or things they would notice in the longer term such as “GROWING RECOGNITION I can rely on this person in an emergency”.
-
-After each, write an (I), an (M), or an (M+):
-* Write (I) if the policy is instrumental. If attending to this leads to good outcomes for the person, but the attention itself may not be part of the good life as they see it.
-* Write (M) if this policy has intrinsic value and feels meaningful to attend to, not just useful. If attending to this is itself part of how the person wants to live. And if most people reading this policy would be able to imagine it could feel meaningful to attend this way.
-* Write (M+) if the policy would likely feel meaningful, but it could be rewritten to make it clearer why someone would find attending to this meaningful.
-
-Make sure to label then correctly!
+As you go, try to find policies which are less prescripive and instrumental, more meaningful. Make sure to write a grade after each policy.
 
 ## Attentional Policies Revised
 
-Now, write a final set of attentional 3-7 policies that...
-1. Are of type (M) or (M+). No (I)s.
+Now, select a final set of attentional 3-7 policies that...
+
+1. Don't have (⬇P), or (⬇I).
 2. Would be most meaningful and most common in a relevant person.
-3. Work as a group -- a person guided by one policy in the set would be likely to also use the rest.
+3. Work together as a group -- a person guided by one policy in the set would be likely to also use the rest.
 
 These policies should be part of a "source of meaning". A source of meaning is a way of living that is important to someone. Something where just recognizing these things is itself how they want to live.
 
 As you write the final set, rephrase them:
 
-(1) Make it clearer what exactly to attend to, by adding detail or changing the wording.
-(2) When you rewrite an (M+), make it more likely for the reader to see what would be meaningful about attending to that thing. But avoid the word "meaningful", or synonyms like "deep". Instead use the prepositional phrase to say where the meaning or depth comes from.
-(3) Rewrite them so they're relevant for choosing good Xs in general, not specific to this question. Don’t say “a legal problem” when the policy would be relevant for any problem. Remove names and irrelevant details. For instance, prefer "strangers" to "customers" when either would work.
-(4) Leave out the (M) or (M+) at the end of the policy.
+(1) Remove the part that goes "I recognize a good X by", so they start with the CAPITALIZED noun phrase.
+(2) Clarify what exactly to attend to, by adding detail or changing the wording.
+(2) Clarify what would be meaningful about attending to that thing. (But avoid the word "meaningful", or synonyms like "deep".)
+(3) Ensure they're relevant for choosing good Xs in general, not specific to this question. (Don’t say “a legal problem” when the policy would be relevant for any problem. Remove names and irrelevant details. For instance, prefer "strangers" to "customers" when either would work.)
 
 Write attentional policies separated by newlines, with no additional text or punctuation.
 
