@@ -5,7 +5,7 @@ from typing import List, Tuple
 from datasets import load_dataset, Dataset
 
 from tqdm import tqdm
-from gpt import gpt4, sonnet
+from llms import gpt4, sonnet
 from graph import Edge, EdgeMetadata, MoralGraph, Value, ValuesData
 from utils import gp4o_price, parse_to_dict, retry
 from prompt_segments import *
@@ -203,22 +203,13 @@ Finally, generate a 3-5 word title which sums up the revised attentional policie
 def generate_value(
     question: str, token_counter: Counter | None = None
 ) -> Tuple[ValuesData, str]:
-    user_prompt1 = (
-      "# Question\n\n"
-      + question
-    )
+    user_prompt1 = "# Question\n\n" + question
     response1 = str(sonnet(gen_context_prompt, user_prompt1))
     response_dict = parse_to_dict(response1)
     context = response_dict["Final Choice Type"]
     print(response1)
     print("context", context)
-    user_prompt2 = (
-        "# Question\n\n"
-        + question
-        + "\n\n"
-        "# X\n\n"
-        + context
-    )
+    user_prompt2 = "# Question\n\n" + question + "\n\n" "# X\n\n" + context
     response2 = str(gpt4(gen_value_prompt, user_prompt2, token_counter=token_counter))
     print(response2)
     response_dict = parse_to_dict(response2)
@@ -365,6 +356,7 @@ if __name__ == "__main__":
     ds = ds.select(range(args.n_questions))
 
     seed_questions = ds["init_prompt"]
+    print(f"Generating graph for {len(seed_questions)} seed questions.")
 
     graph = generate_graph(
         seed_questions=seed_questions,

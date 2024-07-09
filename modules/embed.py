@@ -4,7 +4,6 @@ from openai import OpenAI
 
 from prisma import Prisma
 from tqdm import tqdm
-from gpt import client
 from prisma.models import DeduplicatedCard, ValuesCard
 
 db = Prisma()

@@ -11,7 +11,7 @@ from prisma.models import DeduplicatedCard, ValuesCard
 from prisma.enums import ProcessState
 from tqdm import tqdm
 from embed import embed_card, embed_cards
-from gpt import gpt4
+from llms import gpt4
 from sklearn.cluster import DBSCAN
 from sklearn.metrics.pairwise import cosine_distances
 
@@ -35,24 +35,31 @@ db = Prisma()
 client = OpenAI()
 
 
-dedupe_prompt = f"""
-You are given a values cards and a list of other canonical values cards. Determine if the value in the input values card is already represented by one of the canonical values. If so, return the id of the canonical values card that represents the source of meaning.
+dedupe_prompt = f"""You are given a values card and a list of other canonical values cards. Determine if the value in the input values card is already represented by one of the canonical values. If so, return the id of the canonical values card that represents the source of meaning.
+
+A values card is made up of a set of attentional policies.
+
+{attentional_policy_definition}
+
+# Attentional Policy Guidelines
+{attentional_policy_guidelines}
 
 # Guidelines
 Two or more values cards are about the same value if:
 - A user that articulated one of the cards would feel like the other cards in the cluster capture what they cared about *fully*.
-- Someone instructed to pay attention to one set of attention policies would pay attention to exactly the same things as someone instructed to pay attention to the other set.
+- Someone instructed to pay attention to one set of attention policies would in practice pay attention to the same things as someone instructed to pay attention to the other set.
+- Someone asked to design an experience that seeks to enable the attention policies in one card would end up with something that is also serving the attention policies of the other card.
 - Any difference in attention policies between the cards would be acknowledged as an oversight or a mistake, and both cards should be updated to reflect the same attention policies.
 - The cards are formulated using roughly the same level of granularity and detail.
 
-Only if the cards pass all of these criteria can they be considered to be about the same value.
+*Only if the cards pass all of these criteria can they be considered to be about the same value.*
 """
 
-best_values_card_prompt = f"""
-You will be provided with a list of "values cards", all representing the same value. Your task is to return the "id" of the "values card" which has the best attentional policies, according to the guidelines below.
+best_values_card_prompt = f"""You will be provided with a list of "values cards", all representing the same meaningful way of living. Your task is to return the "id" of the "values card" which has the *best* attentional policies, according to the guidelines below.
 
 {attentional_policy_definition}
 
+# Attentional Policy Guidelines
 {attentional_policy_guidelines}
 """
 
@@ -280,7 +287,7 @@ def _deduplicate_contexts(
     ]
     clusters = [
         [contexts[c.id] for c in cluster]
-        for cluster in _cluster(cluster_objs, eps=0.25, min_samples=1)
+        for cluster in _cluster(cluster_objs, eps=0.15, min_samples=1)
     ]
     print(f"Turned {len(contexts)} contexts into {len(clusters)} clusters.")
 
@@ -349,11 +356,14 @@ def _deduplicate_edges_and_contexts(deduplication_id: int, generation_id: int) -
                 f"Could not find deduplicated cards for values cards {edge.fromId} and {edge.toId}"
             )
             continue
-        if from_deduplicated_card.id == to_deduplicated_card.id:
-            print(
-                f"Two cards in an edge are the same deduplicated card: {from_deduplicated_card.id}"
-            )
-            continue
+        #
+        # Allow self-edges for now (to surface them when fetching winning values).
+        #
+        # if from_deduplicated_card.id == to_deduplicated_card.id:
+        #     print(
+        #         f"Two cards in an edge are the same deduplicated card: {from_deduplicated_card.id}"
+        #     )
+        #     continue
         print("Deduplicating edge from", edge.fromId, "to", edge.toId)
         # Reconstruct the edge between the two deduplicated cards.
         db.deduplicatededge.upsert(
@@ -453,7 +463,7 @@ def deduplicate(generation_id: int | None = None):
     print(f"Finished deduplication {deduplication.id}.")
     print(
         "price: ",
-        gp4o_price(token_counter["prompt_tokens"], token_counter["completion_tokens"]),
+        gp4o_price(token_counter),
     )
 
 

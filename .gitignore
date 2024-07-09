@@ -6,6 +6,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+/data/gpt_cache.jsonl
+/data/sonnet_cache.jsonl
+
 # C extensions
 *.so
 
