@@ -96,17 +96,17 @@ def gpt4(
 
 
 def sonnet(
-    user_prompt: str | None = None,
-    system_prompt: str | None = None,
-    temperature: float = 0.0,
+    user_prompt: str,
+    system_prompt: str,
+    temperature: float = 0.2,
     caching_enabled: bool = True,
 ) -> str:
     prompts = [system_prompt, user_prompt]
 
-    print("user_prompt", user_prompt)
-    print("system_prompt", system_prompt)
-    print(prompts)
-    print(hash(json.dumps(prompts)))
+    # print("user_prompt", user_prompt)
+    # print("system_prompt", system_prompt)
+    # print(prompts)
+    # print(hash(json.dumps(prompts)))
 
     if caching_enabled:
         cached_response = _get_cached_response(prompts, SONNET_CACHE_FILE)
@@ -121,7 +121,7 @@ def sonnet(
         max_tokens=4096,
         messages=[{"role": "user", "content": [{"type": "text", "text": user_prompt}]}],
     )
-    response = message.content[0].text
+    response = message.content[0].text # type: ignore
 
     if caching_enabled:
         _cache_response(prompts, response, SONNET_CACHE_FILE)

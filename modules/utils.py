@@ -38,6 +38,7 @@ def retry(times=3):
                 try:
                     return func(*args, **kwargs)
                 except Exception as e:
+                    kwargs["retry"] = True
                     print(f"Error: {e}")
             return None
 
