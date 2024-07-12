@@ -287,7 +287,7 @@ def _deduplicate_contexts(
     ]
     clusters = [
         [contexts[c.id] for c in cluster]
-        for cluster in _cluster(cluster_objs, eps=0.15, min_samples=1)
+        for cluster in _cluster(cluster_objs, eps=0.20, min_samples=1)
     ]
     print(f"Turned {len(contexts)} contexts into {len(clusters)} clusters.")
 
