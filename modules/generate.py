@@ -330,8 +330,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--n_questions",
         type=int,
-        required=True,
-        default=100,
+        default=25,
         help="The number of questions to generate values for.",
     )
     args = parser.parse_args()
@@ -343,6 +342,14 @@ if __name__ == "__main__":
     n_sources = 1 + len(gen_q_files)  # cai + all generated question files.
 
     #
+    # Load seed questions from the "generated_questions" datasets.
+    #
+    for filename in gen_q_files:
+        with open(Path(gen_q_folder_path, filename), "r") as file:
+            file_questions = [q.strip() for q in file.read().splitlines()]
+            seed_questions += file_questions[: args.n_questions // n_sources]
+
+    #
     # Load seed questions from the CAI dataset.
     #
     ds = load_dataset(
@@ -351,16 +358,11 @@ if __name__ == "__main__":
         split="train",
     )
     assert isinstance(ds, Dataset)
-    ds = ds.select(range(args.n_questions // n_sources))
-    seed_questions = ds["init_prompt"]
-
-    #
-    # Load seed questions from the "generated_questions" datasets.
-    #
-    for filename in gen_q_files:
-        with open(Path(gen_q_folder_path, filename), "r") as file:
-            file_questions = [q.strip() for q in file.read().splitlines()]
-            seed_questions += file_questions[: args.n_questions // n_sources]
+    cai_length = max(
+        args.n_questions // n_sources, args.n_questions - len(seed_questions)
+    )  # if we request more questions than the total of generated questions, include more from the CAI dataset.
+    ds = ds.select(range(cai_length))
+    seed_questions += ds["init_prompt"]
 
     print(f"Generating graph for {len(seed_questions)} seed questions.")
 
