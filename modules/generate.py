@@ -1,4 +1,6 @@
 from collections import Counter
+import os
+from pathlib import Path
 import time
 from typing import List, Tuple
 
@@ -12,10 +14,10 @@ from prompt_segments import *
 
 import argparse
 
-policies_file = open("guidance/policies.md", 'r', encoding='utf-8')
+policies_file = open("guidance/policies.md", "r", encoding="utf-8")
 policies_manual = policies_file.read()
 
-choice_types_file = open("guidance/choice-types.md", 'r', encoding='utf-8')
+choice_types_file = open("guidance/choice-types.md", "r", encoding="utf-8")
 choice_types_manual = choice_types_file.read()
 
 
@@ -177,27 +179,36 @@ def generate_value(
 
 @retry(times=3)
 def generate_upgrade(
-    value: ValuesData, context: str, token_counter: Counter | None = None, retry: bool = False
+    value: ValuesData,
+    context: str,
+    token_counter: Counter | None = None,
+    retry: bool = False,
 ) -> Tuple[ValuesData, EdgeMetadata]:
 
     # let's start by generating stories
     print("\n\n### Generating stories")
-    user_prompt = f"""# Input\n\nX: {context}\n\nPolicies:\n\n{', '.join(value.policies)}"""
+    user_prompt = (
+        f"""# Input\n\nX: {context}\n\nPolicies:\n\n{', '.join(value.policies)}"""
+    )
     print(user_prompt)
-    response = str(sonnet(user_prompt, gen_stories_prompt, caching_enabled=not(retry))) #, token_counter=token_counter
+    response = str(
+        sonnet(user_prompt, gen_stories_prompt, caching_enabled=not (retry))
+    )  # , token_counter=token_counter
     print(response)
     response_dict1 = parse_to_dict(response)
     try:
-      story = response_dict1["Deepening Story"]
+        story = response_dict1["Deepening Story"]
     except KeyError:
-      print("** Error in story generation **")
-      print(response)
-      raise
+        print("** Error in story generation **")
+        print(response)
+        raise
 
     print("\n\n### Generating upgrade")
     user_prompt2 = f"""# Input\n\nX: good {context}\n\nPolicies:\n\n{', '.join(value.policies)}\n\nStory:\n\n{story}"""
     print(user_prompt2)
-    response = str(sonnet(user_prompt2, gen_upgrade_prompt, caching_enabled=not(retry))) #, token_counter=token_counter
+    response = str(
+        sonnet(user_prompt2, gen_upgrade_prompt, caching_enabled=not (retry))
+    )  # , token_counter=token_counter
     print(response)
     # raise NotImplementedError("Stop here for now")
     response_dict2 = parse_to_dict(response)
@@ -266,21 +277,26 @@ def generate_graph(
 
         try:
 
-          # generate base value and context for the question perturbation
-          base_value, context = generate_value(q, token_counter)
-          graph.values.append(Value(base_value))
+            # generate base value and context for the question perturbation
+            base_value, context = generate_value(q, token_counter)
+            graph.values.append(Value(base_value))
 
-          # generate n hops from the base value for the context
-          for _ in range(n_hops):
-              wiser_value, edge = generate_hop(graph.values[-1], context, token_counter)
-              graph.values.append(wiser_value)
-              graph.edges.append(edge)
+            # generate n hops from the base value for the context
+            for _ in range(n_hops):
+                wiser_value, edge = generate_hop(
+                    graph.values[-1], context, token_counter
+                )
+                graph.values.append(wiser_value)
+                graph.edges.append(edge)
 
-          graph.seed_questions.append(q)
+            graph.seed_questions.append(q)
         except Exception as e:
-          print("------------------------------------\nError generating graph for seed question:", q)
-          print(f"Error: {e}")
-          print("------------------------------------\n")
+            print(
+                "------------------------------------\nError generating graph for seed question:",
+                q,
+            )
+            print(f"Error: {e}")
+            print("------------------------------------\n")
 
         if save_to_file:
             graph.save_to_file()
@@ -315,21 +331,37 @@ if __name__ == "__main__":
         "--n_questions",
         type=int,
         required=True,
+        default=100,
         help="The number of questions to generate values for.",
     )
-    parser.add_argument(
-        "--path_to_dataset",
-        type=str,
-        default="./data/cai-harmless-sorted-deduped.jsonl",
-        help="The path to the cai dataset.",
-    )
     args = parser.parse_args()
+    seed_questions = []
 
-    ds = load_dataset("json", data_files=args.path_to_dataset, split="train")
+    cai_path = "./data/cai-harmless-sorted-deduped-filtered.jsonl"
+    gen_q_folder_path = "./data/generated_questions"
+    gen_q_files = os.listdir(gen_q_folder_path)
+    n_sources = 1 + len(gen_q_files)  # cai + all generated question files.
+
+    #
+    # Load seed questions from the CAI dataset.
+    #
+    ds = load_dataset(
+        "json",
+        data_files=cai_path,
+        split="train",
+    )
     assert isinstance(ds, Dataset)
-    ds = ds.select(range(args.n_questions))
-
+    ds = ds.select(range(args.n_questions // n_sources))
     seed_questions = ds["init_prompt"]
+
+    #
+    # Load seed questions from the "generated_questions" datasets.
+    #
+    for filename in gen_q_files:
+        with open(Path(gen_q_folder_path, filename), "r") as file:
+            file_questions = [q.strip() for q in file.read().splitlines()]
+            seed_questions += file_questions[: args.n_questions // n_sources]
+
     print(f"Generating graph for {len(seed_questions)} seed questions.")
 
     graph = generate_graph(

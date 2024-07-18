@@ -71,7 +71,7 @@ model DeduplicatedEdge {
   createdAt              DateTime                 @default(now())
   updatedAt              DateTime                 @updatedAt
   deduplicationId        Int
-  contextModel           DeduplicatedContext      @relation(fields: [contextName, deduplicationId], references: [name, deduplicationId])
+  contextModel           DeduplicatedContext      @relation(fields: [contextName, deduplicationId], references: [name, deduplicationId], onDelete: Cascade)
   Deduplication          Deduplication            @relation(fields: [deduplicationId], references: [id], onDelete: Cascade)
   From                   DeduplicatedCard         @relation("from", fields: [fromId], references: [id], onDelete: Cascade)
   To                     DeduplicatedCard         @relation("to", fields: [toId], references: [id], onDelete: Cascade)
