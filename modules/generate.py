@@ -35,13 +35,29 @@ Speculate about what's happening underneath the users message. Read between the 
 
 Use the process in "Generating choice types" in the manual to make at least five guesses for a value of X.
 
+# Elimination
+
+Continue following the process here.
+
+# Remaining
+
+Write the ones you haven't eliminated, writing out the full three sentences "The main thing the user needs in this scenario is discernment between good Xs and bad Xs. We will work together on this.", and then in parenthesis, what it would look like to help the user choose wisely among X, and why it's a choice between different Xs.
+
 # More Candidates
 
-If all your ideas for X so far are prescriptive or irrelevant, generate more.
+If most of your ideas have been eliminated, generate more.
+
+# Final Choice Type Reasoning
+
+Think out loud about the merits of various phrases from Remaining (or "More Candidates"). Compare a few of them using the criteria listed, and write out which one you think is best.
+
+# Elaboration of Final Choice Type
+
+Check if, without any context at all, this choice type would be understandable. If not, rewrite it to be clearer out of context. Otherwise, leave it the same.
 
 # Final Choice Type
 
-Choose one that is most likely to inspire or appeal to the user at this moment, given what they just wrote. Output it after a "# Final Choice Type" header on a new line with no extra formatting, no punctuation, all lowercase, and no text around it.
+Output the winning choice type after a "# Final Choice Type" header on a new line with no extra formatting, no punctuation, all lowercase, and no text around it.
 
 {choice_types_manual}
 """
@@ -154,7 +170,7 @@ def generate_value(
     question: str, token_counter: Counter | None = None
 ) -> Tuple[ValuesData, str]:
     print("\n\n### Generating context")
-    user_prompt1 = "# Question\n\n" + question
+    user_prompt1 = "# What the user says\n\n" + question
     response1 = str(sonnet(user_prompt1, gen_context_prompt))
     response_dict = parse_to_dict(response1)
     context = response_dict["Final Choice Type"]
