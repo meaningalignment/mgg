@@ -47,7 +47,9 @@ def gpt4(
     temperature: float = 0.0,
     token_counter: Counter | None = None,
     caching_enabled: bool = True,
-) -> str | dict:
+    json_mode: bool = False,
+    max_tokens: int = 4096,
+) -> str | dict | list:
     messages = []
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
@@ -65,10 +67,15 @@ def gpt4(
             return cached_response
 
     params = {
-        "model": "gpt-4o",
+        "model": "chatgpt-4o-latest" if json_mode else "gpt-4o",
         "messages": [*messages],
         "temperature": temperature,
+        "max_tokens": max_tokens,
     }
+
+    if json_mode:
+        params["response_format"] = {"type": "json_object"}
+        params["timeout"] = 120  # usually for longer prompts
 
     if function:
         params["tools"] = [{"type": "function", "function": function}]
@@ -79,15 +86,23 @@ def gpt4(
 
     result = openai.OpenAI().chat.completions.create(**params)
 
-    if token_counter is not None:
+    if token_counter is not None and result.usage:
         token_counter["prompt_tokens"] += result.usage.prompt_tokens
         token_counter["completion_tokens"] += result.usage.completion_tokens
 
-    parsed_result = (
-        json.loads(result.choices[0].message.tool_calls[0].function.arguments)
-        if function
-        else result.choices[0].message.content.strip()
-    )
+    if json_mode:
+        parsed_result = json.loads(
+            result.choices[0]
+            .message.content.split("```json")[1]
+            .split("```")[0]
+            .strip()
+        )
+    elif function:
+        parsed_result = json.loads(
+            result.choices[0].message.tool_calls[0].function.arguments
+        )
+    else:
+        parsed_result = result.choices[0].message.content.strip()
 
     if caching_enabled:
         _cache_response(messages, parsed_result, GPT_CACHE_FILE)
@@ -100,13 +115,9 @@ def sonnet(
     system_prompt: str,
     temperature: float = 0.2,
     caching_enabled: bool = True,
+    max_tokens: int = 4096,
 ) -> str:
     prompts = [system_prompt, user_prompt]
-
-    # print("user_prompt", user_prompt)
-    # print("system_prompt", system_prompt)
-    # print(prompts)
-    # print(hash(json.dumps(prompts)))
 
     if caching_enabled:
         cached_response = _get_cached_response(prompts, SONNET_CACHE_FILE)
@@ -114,14 +125,21 @@ def sonnet(
             print("Found cached response for sonnet prompts...")
             return cached_response
 
+    extra_headers = (
+        {"anthropic-beta": "max-tokens-3-5-sonnet-2024-07-15"}
+        if max_tokens > 4096
+        else {}
+    )
+
     message = Anthropic().messages.create(
         model="claude-3-5-sonnet-20240620",
         system=system_prompt,
         temperature=temperature,
-        max_tokens=4096,
+        max_tokens=max_tokens,
+        extra_headers=extra_headers,
         messages=[{"role": "user", "content": [{"type": "text", "text": user_prompt}]}],
     )
-    response = message.content[0].text # type: ignore
+    response = message.content[0].text  # type: ignore
 
     if caching_enabled:
         _cache_response(prompts, response, SONNET_CACHE_FILE)
