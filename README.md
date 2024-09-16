@@ -8,12 +8,6 @@ Code for generating synthetic moral graphs.
 
 * OpenAI API key
 
-### Env Variables
-
-Copy the prisma snippet from:
-
-[https://vercel.com/institute-for-meaning-alignment/~/stores/postgres/store_hj4DgVFUYDkVLAND/data](https://vercel.com/institute-for-meaning-alignment/~/stores/postgres/store_hj4DgVFUYDkVLAND/data)
-
 ### Python Environment
 
 The project currently uses python `3.10.9`. Using other python versions may cause issues.
