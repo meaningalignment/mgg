@@ -1,6 +1,4 @@
-=============================================
-Manual of Choice Types
-=============================================
+# Manual of Choice Types
 
 ### Choice Types
 

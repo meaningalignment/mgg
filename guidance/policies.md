@@ -1,6 +1,4 @@
-=============================================
-Manual of Attention Policies
-=============================================
+# Manual of Attention Policies
 
 ### Attention Policies
 

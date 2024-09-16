@@ -74,6 +74,8 @@ dedupe_function = {
 def _fetch_duplicate_card(
     candidate: ValuesCard, cards: List[ValuesCard]
 ) -> ValuesCard | None:
+    return None  # TODO remove this line
+
     user_prompt = json.dumps(
         {
             "input_values_card": {"policies": candidate.policies},
