@@ -48,18 +48,18 @@ model Edge {
 
 // A deduplicated card, tied to a deduplication run.
 model DeduplicatedCard {
-  id                                 Int                            @id @default(autoincrement())
-  title                              String
-  policies                           String[]
-  createdAt                          DateTime                       @default(now())
-  updatedAt                          DateTime                       @updatedAt
-  deduplicationId                    Int
-  embedding                          Unsupported("vector(1536)")? // has to be null, as it is unsupported and can only be modified through direct queries.
-  Deduplication                      Deduplication                  @relation(fields: [deduplicationId], references: [id], onDelete: Cascade)
-  From                               DeduplicatedEdge[]             @relation("from")
-  To                                 DeduplicatedEdge[]             @relation("to")
-  ValuesCardToDeduplicatedCard       ValuesCardToDeduplicatedCard[]
-  DeduplicatedCardToContext          DeduplicatedCardToContext[]
+  id                           Int                            @id @default(autoincrement())
+  title                        String
+  policies                     String[]
+  createdAt                    DateTime                       @default(now())
+  updatedAt                    DateTime                       @updatedAt
+  deduplicationId              Int
+  embedding                    Unsupported("vector(1536)")? // has to be null, as it is unsupported and can only be modified through direct queries.
+  Deduplication                Deduplication                  @relation(fields: [deduplicationId], references: [id], onDelete: Cascade)
+  From                         DeduplicatedEdge[]             @relation("from")
+  To                           DeduplicatedEdge[]             @relation("to")
+  ValuesCardToDeduplicatedCard ValuesCardToDeduplicatedCard[]
+  DeduplicatedCardToContext    DeduplicatedCardToContext[]
 }
 
 // A deduplicated edge, tied to a deduplication run.
@@ -71,7 +71,7 @@ model DeduplicatedEdge {
   createdAt              DateTime                 @default(now())
   updatedAt              DateTime                 @updatedAt
   deduplicationId        Int
-  contextModel           DeduplicatedContext      @relation(fields: [contextName, deduplicationId], references: [name, deduplicationId], onDelete: Cascade)
+  contextModel           DeduplicatedContext      @relation(fields: [contextName, deduplicationId], references: [name, deduplicationId])
   Deduplication          Deduplication            @relation(fields: [deduplicationId], references: [id], onDelete: Cascade)
   From                   DeduplicatedCard         @relation("from", fields: [fromId], references: [id], onDelete: Cascade)
   To                     DeduplicatedCard         @relation("to", fields: [toId], references: [id], onDelete: Cascade)
@@ -167,4 +167,37 @@ enum ProcessState {
   IN_PROGRESS
   FINISHED
   ERROR
+}
+
+model ChatFeedback {
+  id        String   @id // Vercel Message ID
+  messages  Json
+  isThumbUp Boolean
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SurveyResponse {
+  id                Int      @id @default(autoincrement())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  prolificId        String?
+  userQuery         String
+  wiseResponse      String
+  naiveResponse     String
+  instructResponse  String
+  comment           String?
+  preference        String? // either "wise" or "naive" or "instruct"
+  mostInteresting   String? // either "wise" or "naive" or "instruct"
+  showsSomethingNew String? // either "wise" or "naive" or "instruct"
+  avoidsLecturing   String? // either "wise" or "naive" or "instruct"
+}
+
+model SurveyOutroResponses {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  prolificId String?
+  agreed     Boolean
 }
