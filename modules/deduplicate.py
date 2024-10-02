@@ -8,7 +8,6 @@ from prisma import Json, Prisma
 from prisma.models import DeduplicatedCard, ValuesCard
 from prisma.enums import ProcessState
 from tqdm import tqdm
-from embed import embed_card
 from llms import gpt4, sonnet
 
 from prompt_segments import attentional_policy_definition, attentional_policy_guidelines
@@ -74,8 +73,6 @@ dedupe_function = {
 def _fetch_duplicate_card(
     candidate: ValuesCard, cards: List[ValuesCard]
 ) -> ValuesCard | None:
-    return None  # TODO remove this line
-
     user_prompt = json.dumps(
         {
             "input_values_card": {"policies": candidate.policies},
