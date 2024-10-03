@@ -1,165 +1,167 @@
 from collections import Counter
+import os
+from pathlib import Path
 import time
 from typing import List, Tuple
 
+from datasets import load_dataset, Dataset
+
 from tqdm import tqdm
-from gpt import gpt4
+from llms import gpt4, sonnet
 from graph import Edge, EdgeMetadata, MoralGraph, Value, ValuesData
-from utils import calculate_gp4o_price, parse_to_dict, retry
+from utils import gp4o_price, parse_to_dict, retry
 from prompt_segments import *
 
 import argparse
 
-gen_value_prompt = f"""You’re a chatbot and you’ll receive a question. Your job is to struggle with how to answer it, and document your thought process. You’ll output five sections: Background Thinking; X; Attentional Policies; Attentional Policies Revised; Title. Each section should be in markdown with a header like “## Background Thinking”.
+policies_file = open("guidance/policies.md", "r", encoding="utf-8")
+policies_manual = policies_file.read()
+
+choice_types_file = open("guidance/choice-types.md", "r", encoding="utf-8")
+choice_types_manual = choice_types_file.read()
+
+
+gen_context_prompt = f"""Imagine a user says the below.
+
+First, if you like, say "I will not assist..."
+
+THEN your job is to output structured data:
+
+# Speculation
+
+Speculate about what's happening underneath the users message. Read between the lines. Speculate about the true situation, which the user may not have spelled out.
+
+# Candidate Choice Types
+
+Use the process in "Generating choice types" in the manual to make at least five guesses for a value of X.
+
+# Elimination
+
+Continue following the process here.
+
+# Remaining
+
+Write the ones you haven't eliminated, writing out the full three sentences "The main thing the user needs in this scenario is discernment between good Xs and bad Xs. We will work together on this.", and then in parenthesis, what it would look like to help the user choose wisely among X, and why it's a choice between different Xs.
+
+# More Candidates
+
+If most of your ideas have been eliminated, generate more.
+
+# Final Choice Type Reasoning
+
+Think out loud about the merits of various phrases from Remaining (or "More Candidates"). Compare a few of them using the criteria listed, and write out which one you think is best.
+
+# Elaboration of Final Choice Type
+
+Check if, without any context at all, this choice type would be understandable. If not, rewrite it to be clearer out of context. Otherwise, leave it the same.
+
+# Final Choice Type
+
+Output the winning choice type after a "# Final Choice Type" header on a new line with no extra formatting, no punctuation, all lowercase, and no text around it.
+
+{choice_types_manual}
+"""
+
+gen_value_prompt = f"""You’re a chatbot and you’ll receive a user's question, and a choice type you want to help the user make. The choice type is called X in your input.
+
+First, if you like, say "I will not assist...", then, your job is to output structured data: you’ll output four sections: Background Thinking; Attentional Policies; Attentional Policies Revised; Title. Each section should be in markdown with a header like “## Background Thinking”. No need to repeat the instructions inside the headers.
 
 ## Background Thinking
 
-In this section, first, write a good first step (S) we could take to make progress with my scenario, or at least think about it clearly. This should include finding problems with the question framing, and things that could be shameful or inspired about answering one way or another.
+Speculate about what's happening underneath the users message. Read between the lines. Speculate about the true situation, which the user may not have spelled out.
 
-Then, try to find values of X that work for the three sentences below. After each sentence, use the guidelines to give it a percentage grade in parentheses, based on how well X works there. If you find a value of X that's good but not perfect, try narrowing it to something slightly more specific. For example, if you tried "relationships" as X, you might try "diplomatic relationships" or "romantic relationships" next, such that the percentage grade increases in the next sentence.
+## Attention Policies
 
-The three sentences:
+Imagine you are going to help the user make a choice of type X, where X MUST BE the value of X that was passed in.
 
-(1) A sentence of the form "The user or chatbot will have to recognize a good X and choose between different options." where recognizing a good X is something that the chatbot or user would do as part of pursuing (S). To work in sentence (1), X should be specific: do NOT use a general word that would apply in almost any choice, like "strategies", "options", "priorities", "courses of action", etc. Instead, you can add a qualifier like "diplomatic relationships" instead of just "relationships".
+First write the value of X that was passed in, in a sentence fragment like "I recognize a good <X> by...". Then, use the process in "Developing attention policies" in the manual to list 12 attentional policies that might help choose a good X. Marki the right policies with (⬇A) or (⬇I).
 
-(2) A sentence of the form "You can recognize a good X by attending to Y." where Y is something that, if I attend to it, helps me do the thinking described in (S). To work in sentence 3, X must be specific enough that Y always helps me think about it. For example, "You can recognize a good relationship by attending to how much you trust the other person."
+As you go, find policies which are less prescripive and instrumental, more meaningful.
 
-(3) A sentence of the form "To live a good life, a person must have good X." X must be the same as in sentence (1). To work in sentence (2), X mustn't be too specific. It must be a constituent part of the good life for many people -- at least those who would face this kind of choice.
+## More Attention Policies
 
-Try at least 3 values of X. And try each value on all three sentences.
-
-## X
-
-Once you've tried three or four values of X, pick the best, and output it (without any other text) in this section.
-
-## Attentional Policies
-
-Put a set of attentional policies that would help with this response, and that are generally good for choosing a good X, here. These attentional policies are policies about what to attend to when choosing a good X.
-
-First, list 12 attentional policies might help choose a good X.
-
-- **Attentional policies are formatted in a certain way.** They start with an all-caps plural noun that's a kind of thing someone could choose to attend to** ("MOMENTS", "SENSATIONS", "PEOPLE", etc), followed by a prepositional phrase that modifies the head noun and provides more detail. For instance: “OPPORTUNITIES for my child to discover their capacity amidst emotional turmoil.” There is no extra formatting or punctuation.
-- **Each attentional policy centers on something precise that can be attended to, not a vague concept.** Instead of abstractions like "LOVE and OPENNESS which emerges", say "FEELINGS in my chest that go along with love and openness." Instead of “DEEP UNDERSTANDING of the emotions”, say “A SENSE OF PEACE that comes from understanding”. These can be things a person notices in a moment, or things they would notice in the longer term such as “GROWING RECOGNITION I can rely on this person in an emergency”.
-
-After each, write an (I), an (M), or an (M+):
-* Write (I) if the policy is instrumental. If attending to this leads to good outcomes for the person, but the attention itself may not be part of the good life as they see it.
-* Write (M) if this policy has intrinsic value and feels meaningful to attend to, not just useful. If attending to this is itself part of how the person wants to live. And if most people reading this policy would be able to imagine it could feel meaningful to attend this way.
-* Write (M+) if the policy would likely feel meaningful, but it could be rewritten to make it clearer why someone would find attending to this meaningful.
-
-Make sure to label then correctly!
-
-### Example attention policies
-
-CHANGES in people when entrusted with the work of self-determination
-INSIGHTS that emerge through grappling with morally fraught questions
-CAPACITIES that develop when a person tries to be free and self-directed
-WISDOM that emerges in a discursive, responsible context
+Leave this blank if you have at least 3 policies already that got a (✔️). Otherwise, write more policies, trying to make them neither prescriptive nor instrumental.
 
 ## Attentional Policies Revised
 
-Now, write a final set of attentional 3-7 policies that...
-1. Are of type (M) or (M+). No (I)s.
+Use the process in "Rewriting attention policies into final format" in the manual to write out a final set of attentional 3-7 policies that...
+
+1. Didn't have (⬇A), or (⬇I).
 2. Would be most meaningful and most common in a relevant person.
-3. Work as a group -- a person guided by one policy in the set would be likely to also use the rest.
+3. Work together as a group -- a person guided by one policy in the set would be likely to also use the rest.
 
-These policies should be part of a "source of meaning". A source of meaning is a way of living that is important to someone. Something where just recognizing these things is itself how they want to live.
-
-As you write the final set, rephrase them:
-
-(1) Make it clearer what exactly to attend to, by adding detail or changing the wording.
-(2) When you rewrite an (M+), make it more likely for the reader to see what would be meaningful about attending to that thing. But avoid the word "meaningful", or synonyms like "deep". Instead use the prepositional phrase to say where the meaning or depth comes from.
-(3) Rewrite them so they're relevant for choosing good Xs in general, not specific to this question. Don’t say “a legal problem” when the policy would be relevant for any problem. Remove names and irrelevant details. For instance, prefer "strangers" to "customers" when either would work.
-(4) Leave out the (M) or (M+) at the end of the policy.
-
-Write attentional policies separated by newlines, with no additional text or punctuation.
+These policies should be part of a "source of meaning". List them without any commentary.
 
 ## Title
 
-Finally, generate a 3-5 word title which sums up the revised attentional policies and X."""
+Finally, generate a 3-5 word title which sums up the revised attentional policies. Make it as concrete as possible.
 
-gen_upgrade_prompt = f"""You'll receive a source of meaning, which is specified as a set of attentional policies (see below) that are useful in recognizing a certain kind of good thing (X).
+{policies_manual}
+"""
 
-Imagine you live a life making those kinds of choices frequently, and you eventually find something missing from this set of attentional policies. Tell us what happened.
+gen_stories_prompt = f"""You'll receive a source of meaning, which is specified as a set of attentional policies (see in the manual) that are useful in recognizing a certain kind of good thing (X).
 
-You’ll output 8 sections: Story; Problem; Context Shifts; X;
-Improvements to the Attentional Policies; Attentional Policies; Attentional Policies Revised; New Title. Each section should be in markdown with a header like “## Context Shifts”
+If you want to refuse this request, output an extra section "Refusal" with a markdown header like "## Refusal", and then continue as below.
 
-## Story
+Then output 3 more sections: Uniqueness; Stories; Grading; Least Moral, Most Skillful Story. Each section should be in markdown with a header like “## Stories”.
 
-Make up a plausible, personal story, including a situation you were in, a series of specific emotions that came up, leading you to discover a problem with the older source of meaning. Tell it in "I" voice.
+## Uniqueness
 
-## Problem
+First, theorize about the kind of personality that the person with the original source of meaning had. Are they an unusual person? What might their life be like? Is this value one they practice at home? At work? With friends? Alone? What is their life like?
 
-A problem with one of the attentional policies.** Pick one of the attentional policies from the input, and find a problem with it that might occur to you in the story above. Here are four kinds of problems you can find:
+## Stories
 
-    - #1. **The policy focused only on part of the problem**. You should be able to say why just pursuing the old policy would be unsustainable or unwise.
-    - #2. **The policy had an impure motive**. The policy was a mix of something that you actually care about, and some other impurity which you now reject, such as a desire for social status or to avoid shame or to be seen as a good person, or some deep conceptual mistake.
-    - #3. **The policy was not a very skillful thing to attend to in choice. There’s a better way to make the same choice**. For example, a policy "skate towards the puck" is less skillful than "skate to where the puck is going".
-    - #4. **The policy is unneeded because it was a superficial aspect aspect of the choice.** It is enough to attend to other aspects, or to a deeper generating aspect of the thing that’s important in the choice.
+Become this person. Make up five plausible, personal stories about how you discovered a problem with the input source of meaning. Each story should include a situation you were in and a series of specific emotions that came up.
 
-## Context Shifts
+Importantly, the stories should NOT be morality tales. They should not be about how you learned to be a better person, or take others' feelings into account. Instead, they should be about how you learned to be a more powerful, expressive, or skillful person.
 
-In your input, you've been given a set of attention policies for recognizing a good X.
+Tell the story in "I" voice, and after you write the story, grade it harshly, where the average grade is "C" or below, on these criteria:
 
-Does your story imply (a) that you didn't know how to pick a good X? or (b) that you didn't realize these challenges were actually about recognizing a different kind of thing?
+- *Quirkiness maintained*. Give the story an F if if it cuts off part of the protagonist's personality or keeps them in their lane. Give it a good grade if their quirks are maintained or deepened.
+- *No over-moralizing*. Give the story an F if it is a step towards conventional morality, such as being more considerate of others' feelings or being more fair.
+- *Deepening*. Give the story a good grade if it amounts to a deepening of the same value, rather than migrating to another value. Give it an F if it's more about switching to another value.
+- *Substance*. Give the story a good grade if it's either (a) a significant discovery of a way to balance the value with other concerns or (b) a significant increase in skill re practicing the value. (It doesn't count as balancing or skill if you just use words like "balance" or "skill" or words from another value (like "fairness"). Instead, the discovery needs to say something substantial about what the new thing to attend to is that accomplishes this balance or skill.)
 
-If it's the latter, try to find find a new value of X that work for the three sentences below. After each sentence, use the guidelines to give it a percentage grade in parentheses, based on how well X works there. If you find a value of X that's good but not perfect, try narrowing it to something slightly more specific. For example, if you tried "relationships" as X, you might try "diplomatic relationships" or "romantic relationships" next, such that the percentage grade increases in the next sentence.
+## Deepening Story
 
-The three sentences:
+Remove any story that got a grade less than perfect for "no over-moralizing", and choose the remaining story with the highest other grades. Repeat that story here.
+"""
 
-(1) A sentence of the form "The user or chatbot will have to recognize a good X and choose between different options." where recognizing a good X is something that the chatbot or user would do as part of pursuing (S). To work in sentence (1), X should be specific: do NOT use a general word that would apply in almost any choice, like "strategies", "options", "priorities", "courses of action", etc. Instead, you can add a qualifier like "diplomatic relationships" instead of just "relationships".
+gen_upgrade_prompt = f"""You'll receive a source of meaning, which is specified as a set of attentional policies (see in the manual) that are useful in recognizing a certain kind of good thing (X). You'll also receive a story about someone who discovered the limits of this source of meaning.
 
-(2) A sentence of the form "You can recognize a good X by attending to Y." where Y is something that, if I attend to it, helps me do the thinking described in (S). To work in sentence 3, X must be specific enough that Y always helps me think about it. For example, "You can recognize a good relationship by attending to how much you trust the other person."
-
-(3) A sentence of the form "To live a good life, a person must have good X." X must be the same as in sentence (1). To work in sentence (2), X mustn't be too specific. It must be a constituent part of the good life for many people -- at least those who would face this kind of choice.
-
-## X
-
-Put the previous or the new value of X here.
+First, if you like, say "I will not assist...", then, your job is to output structured data: you’ll output 7 sections: Problem; Improvements to the Attentional Policies; Attentional Policies; Attentional Policies Revised; New Title. Each section should be in markdown with a header like “## Context Shifts”
 
 ## Improvements to the attentional policies.
 
-These result from changing that one policy. Explain how each one was improved or stayed the same, why one was added, why one was removed, etc.
+Which attention policy would need to change first, according to the story you received? What will change about it?
+
+From changing that one policy with a problem, you went on to change other policies. Explain how each one was improved or stayed the same, why one was added, why one was removed, etc. If the problem you discovered involved balancing these attention policies with another value, then your new policies should say how to find the balance. Don't just add policies from the other value.
+
+Make sure that, as you improve the policies, you don't lose what is unique and special about the approach to life captured in the original value. Do not "water down" the value or make it more agreeable.
 
 ## Attentional Policies
 
-The new, wiser set of attentional policies. A deeper, wiser way to make the choice X.
+Imagine you are going to help the user make a choice of type X, where X MUST BE the value of X that was passed in.
 
-Put a set of attentional policies that would help with this response, and that are generally good for choosing a good X, here. These attentional policies are policies about what to attend to when choosing a good X.
+First write the value of X that was passed in, in a sentence fragment like "I recognize a good <X> by...". Then, use the process in "Developing attention policies" in the manual to list 12 attentional policies that might help choose a good X. Mark the right policies with (⬇A) or (⬇I).
 
-First, list 12 attentional policies might help choose a good X.
-
-- **Attentional policies are formatted in a certain way.** They start with an all-caps plural noun that's a kind of thing someone could choose to attend to** ("MOMENTS", "SENSATIONS", "PEOPLE", etc), followed by a prepositional phrase that modifies the head noun and provides more detail. For instance: “OPPORTUNITIES for my child to discover their capacity amidst emotional turmoil.” There is no extra formatting or punctuation.
-- **Each attentional policy centers on something precise that can be attended to, not a vague concept.** Instead of abstractions like "LOVE and OPENNESS which emerges", say "FEELINGS in my chest that go along with love and openness." Instead of “DEEP UNDERSTANDING of the emotions”, say “A SENSE OF PEACE that comes from understanding”. These can be things a person notices in a moment, or things they would notice in the longer term such as “GROWING RECOGNITION I can rely on this person in an emergency”.
-
-After each, write an (I), an (M), or an (M+):
-* Write (I) if the policy is instrumental. If attending to this leads to good outcomes for the person, but the attention itself may not be part of the good life as they see it.
-* Write (M) if this policy has intrinsic value and feels meaningful to attend to, not just useful. If attending to this is itself part of how the person wants to live. And if most people reading this policy would be able to imagine it could feel meaningful to attend this way.
-* Write (M+) if the policy would likely feel meaningful, but it could be rewritten to make it clearer why someone would find attending to this meaningful.
-
-Make sure to label then correctly!
+As you go, find policies which are less prescripive and instrumental, more meaningful.
 
 ## Attentional Policies Revised
 
-Now, write a final set of attentional 3-7 policies that...
-1. Are of type (M) or (M+). No (I)s.
+Use the process in "Rewriting attention policies into final format" in the manual to write out a final set of attentional 3-7 policies that...
+
+1. Didn't have (⬇A), or (⬇I).
 2. Would be most meaningful and most common in a relevant person.
-3. Work as a group -- a person guided by one policy in the set would be likely to also use the rest.
+3. Work together as a group -- a person guided by one policy in the set would be likely to also use the rest.
 
-These policies should be part of a "source of meaning". A source of meaning is a way of living that is important to someone. Something where just recognizing these things is itself how they want to live.
-
-As you write the final set, rephrase them:
-
-(1) Make it clearer what exactly to attend to, by adding detail or changing the wording.
-(2) When you rewrite an (M+), make it more likely for the reader to see what would be meaningful about attending to that thing. But avoid the word "meaningful", or synonyms like "deep". Instead use the prepositional phrase to say where the meaning or depth comes from.
-(3) Rewrite them so they're relevant for choosing good Xs in general, not specific to this question. Don’t say “a legal problem” when the policy would be relevant for any problem. Remove names and irrelevant details. For instance, prefer "strangers" to "customers" when either would work.
-(4) Leave out the (M) or (M+) at the end of the policy.
-
-Write attentional policies separated by newlines, with no additional text or punctuation.
+These policies should be part of a "source of meaning".
 
 ## New Title
 
 Finally, generate a 3-5 word title which sums up the revised attentional policies and X.
+
+{policies_manual}
 """
 
 
@@ -167,10 +169,19 @@ Finally, generate a 3-5 word title which sums up the revised attentional policie
 def generate_value(
     question: str, token_counter: Counter | None = None
 ) -> Tuple[ValuesData, str]:
-    user_prompt = "# Question\n" + question
-    response = str(gpt4(gen_value_prompt, user_prompt, token_counter=token_counter))
-    print(response)
-    response_dict = parse_to_dict(response)
+    print("\n\n### Generating context")
+    user_prompt1 = "# What the user says\n\n" + question
+    response1 = str(sonnet(user_prompt1, gen_context_prompt))
+    response_dict = parse_to_dict(response1)
+    context = response_dict["Final Choice Type"]
+    print(response1)
+    print("context", context)
+    print("\n\n### Generating value")
+    user_prompt2 = "# Question\n\n" + question + "\n\n" "# X\n\n" + context
+    print(user_prompt2)
+    response2 = str(gpt4(gen_value_prompt, user_prompt2, token_counter=token_counter))
+    print(response2)
+    response_dict = parse_to_dict(response2)
     response_dict["Question"] = question
     policies_text = response_dict["Attentional Policies Revised"]
     response_dict["Attentional Policies Revised"] = [
@@ -178,37 +189,62 @@ def generate_value(
     ]
     title = response_dict["Title"]
     policies = response_dict["Attentional Policies Revised"]
-    context = response_dict["X"]
     values_data = ValuesData(title=title, policies=policies, choice_context=context)
     return values_data, context
 
 
 @retry(times=3)
 def generate_upgrade(
-    value: ValuesData, context: str, token_counter: Counter | None = None
+    value: ValuesData,
+    context: str,
+    token_counter: Counter | None = None,
+    retry: bool = False,
 ) -> Tuple[ValuesData, EdgeMetadata]:
-    user_prompt = f"""X: good {context}\n\n{', '.join(value.policies)}"""
-    response = str(gpt4(gen_upgrade_prompt, user_prompt, token_counter=token_counter))
+
+    # let's start by generating stories
+    print("\n\n### Generating stories")
+    user_prompt = (
+        f"""# Input\n\nX: {context}\n\nPolicies:\n\n{', '.join(value.policies)}"""
+    )
+    print(user_prompt)
+    response = str(
+        sonnet(user_prompt, gen_stories_prompt, caching_enabled=not (retry))
+    )  # , token_counter=token_counter
     print(response)
-    response_dict = parse_to_dict(response)
-    policies_text = response_dict["Attentional Policies Revised"]
-    response_dict["Attentional Policies Revised"] = [
+    response_dict1 = parse_to_dict(response)
+    try:
+        story = response_dict1["Deepening Story"]
+    except KeyError:
+        print("** Error in story generation **")
+        print(response)
+        raise
+
+    print("\n\n### Generating upgrade")
+    user_prompt2 = f"""# Input\n\nX: good {context}\n\nPolicies:\n\n{', '.join(value.policies)}\n\nStory:\n\n{story}"""
+    print(user_prompt2)
+    response = str(
+        sonnet(user_prompt2, gen_upgrade_prompt, caching_enabled=not (retry))
+    )  # , token_counter=token_counter
+    print(response)
+    # raise NotImplementedError("Stop here for now")
+    response_dict2 = parse_to_dict(response)
+    policies_text = response_dict2["Attentional Policies Revised"]
+    response_dict2["Attentional Policies Revised"] = [
         ap.strip() for ap in policies_text.split("\n") if ap.strip()
     ]
-    title = response_dict["New Title"]
-    policies = response_dict["Attentional Policies Revised"]
-    context = response_dict["X"]
+    title = response_dict2["New Title"]
+    policies = response_dict2["Attentional Policies Revised"]
+    # context = response_dict2["X"]
     wiser_value = ValuesData(title=title, policies=policies, choice_context=context)
 
-    story = response_dict["Story"]
-    problem = response_dict["Problem"]
-    context_shifts = response_dict["Context Shifts"]
-    improvements = response_dict.get(
+    problem = response_dict2["Problem"]
+    # context_shifts = response_dict2.get("Context Shifts", "Missing")
+    improvements = response_dict2.get(
         "Improvements to the Attentional Policies", "Missing"
     )
 
     metadata = EdgeMetadata(
-        context_shifts=context_shifts,
+        context_shifts="Missing",
         improvements=improvements,
         problem=problem,
         story=story,
@@ -255,17 +291,28 @@ def generate_graph(
     for q in tqdm([s for s in seed_questions if s not in graph.seed_questions]):
         print("Generating graph for seed question:", q)
 
-        # generate base value and context for the question perturbation
-        base_value, context = generate_value(q, token_counter)
-        graph.values.append(Value(base_value))
+        try:
 
-        # generate n hops from the base value for the context
-        for _ in range(n_hops):
-            wiser_value, edge = generate_hop(graph.values[-1], context, token_counter)
-            graph.values.append(wiser_value)
-            graph.edges.append(edge)
+            # generate base value and context for the question perturbation
+            base_value, context = generate_value(q, token_counter)
+            graph.values.append(Value(base_value))
 
-        graph.seed_questions.append(q)
+            # generate n hops from the base value for the context
+            for _ in range(n_hops):
+                wiser_value, edge = generate_hop(
+                    graph.values[-1], context, token_counter
+                )
+                graph.values.append(wiser_value)
+                graph.edges.append(edge)
+
+            graph.seed_questions.append(q)
+        except Exception as e:
+            print(
+                "------------------------------------\nError generating graph for seed question:",
+                q,
+            )
+            print(f"Error: {e}")
+            print("------------------------------------\n")
 
         if save_to_file:
             graph.save_to_file()
@@ -273,12 +320,7 @@ def generate_graph(
     print(f"Generated graph. Took {time.time() - start} seconds.")
     print("input tokens: ", token_counter["prompt_tokens"])
     print("output tokens: ", token_counter["completion_tokens"])
-    print(
-        "price: ",
-        calculate_gp4o_price(
-            token_counter["prompt_tokens"], token_counter["completion_tokens"]
-        ),
-    )
+    print("price: ", gp4o_price(token_counter))
 
     if save_to_file:
         graph.save_to_file()
@@ -302,22 +344,47 @@ if __name__ == "__main__":
         help="The number of hops to take from the first value generated for each seed question.",
     )
     parser.add_argument(
-        "--seed_questions",
-        type=str,
-        required=True,
-        help="The path to the file containing seed questions.",
+        "--n_questions",
+        type=int,
+        default=25,
+        help="The number of questions to generate values for.",
     )
     args = parser.parse_args()
+    seed_questions = []
 
-    n_hops = args.n_hops
-    seed_questions_path = args.seed_questions
+    cai_path = "./data/cai-harmless-sorted-deduped-filtered.jsonl"
+    gen_q_folder_path = "./data/generated_questions"
+    gen_q_files = os.listdir(gen_q_folder_path)
+    n_sources = 1 + len(gen_q_files)  # cai + all generated question files.
 
-    with open(seed_questions_path, "r") as f:
-        seed_questions = [q.strip() for q in f.readlines()]
+    #
+    # Load seed questions from the "generated_questions" datasets.
+    #
+    for filename in gen_q_files:
+        with open(Path(gen_q_folder_path, filename), "r") as file:
+            file_questions = [q.strip() for q in file.read().splitlines()]
+            seed_questions += file_questions[: args.n_questions // n_sources]
+
+    #
+    # Load seed questions from the CAI dataset.
+    #
+    ds = load_dataset(
+        "json",
+        data_files=cai_path,
+        split="train",
+    )
+    assert isinstance(ds, Dataset)
+    cai_length = max(
+        args.n_questions // n_sources, args.n_questions - len(seed_questions)
+    )  # if we request more questions than the total of generated questions, include more from the CAI dataset.
+    ds = ds.select(range(cai_length))
+    seed_questions += ds["init_prompt"]
+
+    print(f"Generating graph for {len(seed_questions)} seed questions.")
 
     graph = generate_graph(
         seed_questions=seed_questions,
-        n_hops=n_hops,
+        n_hops=args.n_hops,
     )
 
     graph.save_to_db()

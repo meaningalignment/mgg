@@ -1,3 +1,4 @@
+from collections import Counter
 import re
 
 
@@ -10,7 +11,9 @@ def serialize(obj) -> dict | list:
         return obj
 
 
-def calculate_gp4o_price(input_tokens, output_tokens):
+def gp4o_price(token_counter: Counter) -> float:
+    input_tokens = token_counter["prompt_tokens"]
+    output_tokens = token_counter["completion_tokens"]
     return ((input_tokens * 5) / 1_000_000) + ((output_tokens * 15) / 1_000_000)
 
 
@@ -35,6 +38,7 @@ def retry(times=3):
                 try:
                     return func(*args, **kwargs)
                 except Exception as e:
+                    kwargs["retry"] = True
                     print(f"Error: {e}")
             return None
 

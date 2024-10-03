@@ -105,6 +105,26 @@ class MoralGraph:
         self.edges = edges
         self.seed_questions = seed_questions
 
+    def get_winning_values(self, context: str, n_values: int = 1):
+        """Get `n` the winning values for the context."""
+
+        edges = [e for e in self.edges if e.context in context]
+        values = [
+            v
+            for v in self.values
+            if v.id in [e.from_id for e in edges] or v.id in [e.to_id for e in edges]
+        ]
+        trimmed_graph = MoralGraph(values, edges)
+
+        # Get n winning value(s) by calculating PageRank score.
+        n_values = 1
+        pr = nx.pagerank(trimmed_graph.to_nx_graph())
+        winning_value_ids = [
+            p[0]
+            for p in sorted(pr.items(), key=lambda x: x[1], reverse=True)[:n_values]
+        ]
+        return [v for v in values if v.id in winning_value_ids]
+
     def to_json(self):
         """
         Serializes the moral graph to a JSON-compatible dictionary.
@@ -226,9 +246,7 @@ class MoralGraph:
         Args:
             path (str | None): The path to the JSON file. If None, a default path is used.
         """
-        with open(
-            path if path else f"./outputs/graph_{self.__hash__()}.json", "w"
-        ) as f:
+        with open(path if path else f"./graph_{self.__hash__()}.json", "w") as f:
             json.dump(self.to_json(), f, indent=2)
 
     def save_to_db(self, generation_id: int | None = None):
